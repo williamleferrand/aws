@@ -1,0 +1,27 @@
+USE_OCAMLFIND = true
+OCAMLPACKS[] = \
+  netstring \
+  cryptokit \
+  calendar \
+  cohttp \
+  lwt.syntax \
+  xml-light
+
+NATIVE_ENABLED = true
+BYTE_ENABLED = true
+
+OCAMLFLAGS  += -dtypes 
+OCAMLFINDFLAGS += -syntax camlp4o
+
+FILES[] = s3 util creds
+
+LIB = aws
+OCAML_LIBS[] = $(LIB)
+
+.DEFAULT: $(OCamlLibrary $(LIB), $(FILES)) \
+  $(OCamlProgram s3c, s3c)
+
+.PHONY:  clean
+
+clean:
+	rm -f $(filter-proper-targets $(ls R, .)) *.s *.annot
