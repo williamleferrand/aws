@@ -352,7 +352,7 @@ and objects_of_xml = function
   | _ -> raise (Error "ListBucketResult:c")
     
 
-let list_objects creds ~s3_bucket =
+let list_objects creds s3_bucket =
   let now = now_as_string () in
   let string_to_sign = sprintf "%s\n\n\n%s\n/%s"
     (string_of_http_method `GET) now s3_bucket in
@@ -446,7 +446,7 @@ let access_control_policy_of_xml = function
   | _ ->
     raise (Error "AccessControlPolicy:t")
 
-let get_bucket_acl creds ~s3_bucket =
+let get_bucket_acl creds s3_bucket =
   let now = now_as_string () in
   let string_to_sign = sprintf "%s\n\n\n%s\n/%s/?acl" 
       (string_of_http_method `GET) now s3_bucket 
@@ -461,6 +461,6 @@ let get_bucket_acl creds ~s3_bucket =
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
 
-
+  
 
   
