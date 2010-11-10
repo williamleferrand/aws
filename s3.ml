@@ -367,17 +367,6 @@ let list_objects creds ~s3_bucket =
     | HC.Http_error (_,_,body) -> error_msg body
 
 
-type id_kind = [ `amazon_customer_by_email | `canonical_user ]
-
-let string_of_id_kind = function
-  | `amazon_customer_by_email -> "AmazonCustomerByEmail"
-  | `canonical_user -> "CanonicalUser"
-
-let id_kind_of_string = function 
-  | "AmazonCustomerByEmail" -> `amazon_customer_by_email 
-  | "CanonicalUser" -> `canonical_user
-  | x -> raise (Error (sprintf "invalid id kind %S" x))
-
 type permission = [
 | `read 
 | `write
@@ -402,6 +391,36 @@ let permission_of_string = function
   | x -> raise (Error (sprintf "invalid permission %S" x))
 
 
+type grantee = [ 
+| `amazon_customer_by_email of string
+| `canonical_user of < display_name : string; id : string >
+| `group of string 
+]
+
+let string_of_grantee = function
+| `amazon_customer_by_email em -> "AmazonCustomerByEmail " ^ em
+| `canonical_user cn -> sprintf "CanonicalUser (%s,%s)" cn#id cn#display_name
+| `group g -> "Group " ^ g
+
+
+let grantee_of_xml = function 
+  | [X.Element ("ID",_,[X.PCData id]);
+     X.Element ("DisplayName",_,[X.PCData display_name])
+    ] ->
+    `canonical_user (object 
+      method id = id 
+      method display_name = display_name
+    end)
+
+  | [X.Element ("EmailAddress",_,[X.PCData email_address])] ->
+    `amazon_customer_by_email email_address
+
+  | [X.Element ("URI",_,[X.PCData group])] ->
+    `group group
+
+  | _ ->
+    raise (Error "grantee")
+
 let access_control_policy_of_xml = function
   | X.Element ("AccessControlPolicy",_,[
     X.Element ("Owner",_,[
@@ -410,27 +429,18 @@ let access_control_policy_of_xml = function
     ]);
     X.Element ("AccessControlList",_,[
       X.Element ("Grant",_,[
-	X.Element ("Grantee", grantee_atts, [
-	  X.Element ("ID",_,[X.PCData grantee_id]);
-	  X.Element ("DisplayName",_,[X.PCData grantee_display_name])
-	]);
+	X.Element ("Grantee", grantee_atts, grantee_x);
 	X.Element ("Permission",_,[X.PCData permission_s])
       ])
     ])
   ]) ->
-    let grantee_id_kind = 
-      match grantee_atts with
-	| [_ ; _, id_kind_s] -> id_kind_of_string id_kind_s
-	| _ -> raise (Error "AccessControlPolicy:gik")
-    in
+    let grantee = grantee_of_xml grantee_x in
     let permission = permission_of_string permission_s in
 
     (object
       method owner_id = owner_id
       method owner_display_name = owner_display_name
-      method grantee_id = grantee_id
-      method grantee_id_kind = grantee_id_kind
-      method grantee_display_name = grantee_display_name
+      method grantee = grantee
       method permission = permission
      end)
   | _ ->

@@ -106,9 +106,6 @@ val list_objects :
     > 
   ] Lwt.t
 
-type id_kind = [ `amazon_customer_by_email | `canonical_user ]
-val string_of_id_kind : id_kind -> string
-
 type permission = [
 | `read 
 | `write
@@ -118,15 +115,20 @@ type permission = [
 ]
 val string_of_permission : permission -> string
 
+type grantee = [ 
+| `amazon_customer_by_email of string
+| `canonical_user of < display_name : string; id : string >
+| `group of string 
+]
+val string_of_grantee : grantee -> string
+
 val get_bucket_acl :
   Creds.t ->
   s3_bucket:string -> 
   [> `Error of string 
   | `NotFound 
   | `Ok of < 
-      grantee_display_name : string; 
-      grantee_id : string;
-      grantee_id_kind : id_kind;
+      grantee : grantee;
       owner_display_name : string; 
       owner_id : string;
       permission : permission

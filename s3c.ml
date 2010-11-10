@@ -170,9 +170,7 @@ let get_bucket_acl creds s3_bucket () =
 	print_kv_list [
 	  "owner-id", r#owner_id;
 	  "owner-display-name", r#owner_display_name;
-	  "grantee-id", r#grantee_id;
-	  "grantee-id-kind", (S3.string_of_id_kind r#grantee_id_kind);
-	  "grantee-display-name", r#grantee_display_name;
+	  "grantee", (S3.string_of_grantee r#grantee);
 	  "permission", (S3.string_of_permission r#permission)
 	];
 	0
