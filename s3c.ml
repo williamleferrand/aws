@@ -171,8 +171,9 @@ let get_bucket_acl creds s3_bucket () =
 	  "owner-id", r#owner_id;
 	  "owner-display-name", r#owner_display_name;
 	  "grantee-id", r#grantee_id;
+	  "grantee-id-kind", (S3.string_of_id_kind r#grantee_id_kind);
 	  "grantee-display-name", r#grantee_display_name;
-	  "permission", r#permission
+	  "permission", (S3.string_of_permission r#permission)
 	];
 	0
       | `NotFound -> Printf.printf "bucket %S not found\n%!" s3_bucket; 1

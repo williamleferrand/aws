@@ -367,6 +367,41 @@ let list_objects creds ~s3_bucket =
     | HC.Http_error (_,_,body) -> error_msg body
 
 
+type id_kind = [ `amazon_customer_by_email | `canonical_user ]
+
+let string_of_id_kind = function
+  | `amazon_customer_by_email -> "AmazonCustomerByEmail"
+  | `canonical_user -> "CanonicalUser"
+
+let id_kind_of_string = function 
+  | "AmazonCustomerByEmail" -> `amazon_customer_by_email 
+  | "CanonicalUser" -> `canonical_user
+  | x -> raise (Error (sprintf "invalid id kind %S" x))
+
+type permission = [
+| `read 
+| `write
+| `read_acp
+| `write_acp
+| `full_control
+]
+
+let string_of_permission = function
+  | `read -> "READ"
+  | `write -> "WRITE"
+  | `read_acp -> "READ_ACP"
+  | `write_acp -> "WRITE_ACP"
+  | `full_control -> "FULL_CONTROL"
+
+let permission_of_string = function
+  | "READ" -> `read 
+  | "WRITE" -> `write
+  | "READ_ACP" -> `read_acp
+  | "WRITE_ACP" -> `write_acp
+  | "FULL_CONTROL" -> `full_control
+  | x -> raise (Error (sprintf "invalid permission %S" x))
+
+
 let access_control_policy_of_xml = function
   | X.Element ("AccessControlPolicy",_,[
     X.Element ("Owner",_,[
@@ -375,23 +410,31 @@ let access_control_policy_of_xml = function
     ]);
     X.Element ("AccessControlList",_,[
       X.Element ("Grant",_,[
-	X.Element ("Grantee",atts,[
+	X.Element ("Grantee", grantee_atts, [
 	  X.Element ("ID",_,[X.PCData grantee_id]);
 	  X.Element ("DisplayName",_,[X.PCData grantee_display_name])
 	]);
-	X.Element ("Permission",_,[X.PCData permission])
+	X.Element ("Permission",_,[X.PCData permission_s])
       ])
     ])
   ]) ->
+    let grantee_id_kind = 
+      match grantee_atts with
+	| [_ ; _, id_kind_s] -> id_kind_of_string id_kind_s
+	| _ -> raise (Error "AccessControlPolicy:gik")
+    in
+    let permission = permission_of_string permission_s in
+
     (object
       method owner_id = owner_id
       method owner_display_name = owner_display_name
       method grantee_id = grantee_id
+      method grantee_id_kind = grantee_id_kind
       method grantee_display_name = grantee_display_name
       method permission = permission
      end)
   | _ ->
-    raise (Error "AccessControlPolicy")
+    raise (Error "AccessControlPolicy:t")
 
 let get_bucket_acl creds ~s3_bucket =
   let now = now_as_string () in
