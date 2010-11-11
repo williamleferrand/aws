@@ -61,6 +61,11 @@ let string_of_http_method = function
   | `HEAD -> "HEAD"
   | `DELETE -> "DELETE"
 
+type amz_acl = [`Private]
+
+let string_of_amz_acl = function
+  | `Private -> "private"
+
 let sign key string_to_sign =
   let hmac_sha1 = K.MAC.hmac_sha1 key in
   let hashed_string_to_sign = K.hash_string hmac_sha1 string_to_sign in
@@ -100,6 +105,7 @@ let get_object_h creds_opt ~s3_bucket ~s3_object =
   in
   headers, request_url
 
+(* get object *)
 let get_object_s creds_opt ~s3_bucket ~s3_object =
   let headers, request_url = get_object_h creds_opt ~s3_bucket ~s3_object in
   try_lwt
@@ -124,24 +130,19 @@ let get_object creds_opt ~s3_bucket ~s3_object ~path =
   lwt () = Lwt_io.close outchan in
   return res
   
-
-type acl = [`Private]
-
-let string_of_acl = function
-  | `Private -> "private"
-
-let create_bucket creds s3_bucket acl =
+(* create bucket *)
+let create_bucket creds s3_bucket amz_acl =
   let now = now_as_string () in
-  let acl_s = string_of_acl acl in
+  let amz_acl_s = string_of_amz_acl amz_acl in
   let string_to_sign = sprintf "%s\n\n\n%s\nx-amz-acl:%s\n/%s"
-    (string_of_http_method `PUT) now acl_s s3_bucket 
+    (string_of_http_method `PUT) now amz_acl_s s3_bucket 
   in
   let authorization_header = authorization_header creds string_to_sign in
   let request_url = sprintf "http://s3.amazonaws.com/%s" s3_bucket in
   let headers = [
     authorization_header;
     "Date", now; 
-    "x-amz-acl", acl_s
+    "x-amz-acl", amz_acl_s
   ]
   in
   try_lwt
@@ -150,7 +151,7 @@ let create_bucket creds s3_bucket acl =
   with HC.Http_error (_, _, body) ->
     error_msg body
 
-
+(* delete bucket *)
 let delete_bucket creds s3_bucket =
   let now = now_as_string () in
   let string_to_sign = sprintf "%s\n\n\n%s\n/%s"
@@ -169,6 +170,7 @@ let delete_bucket creds s3_bucket =
     | HC.Http_error (_,_,body) ->
       error_msg body
 
+(* list buckets *)
 let rec bucket = function
   | X.Element (
     "Bucket",_, [
@@ -203,11 +205,12 @@ let list_buckets creds =
     error_msg body
 
 
+(* put object *)
 let noop () = return ()
 
 let put_object 
     ?(content_type="binary/octet-stream")
-    ?(acl=`Private)
+    ?(amz_acl=`Private)
     creds 
     ~s3_bucket 
     ~s3_object 
@@ -217,15 +220,15 @@ let put_object
     (Util.encode_url s3_object) 
   in
   let request_url = service_url ^ bucket_object in
-  let acl_s = string_of_acl acl in
+  let amz_acl_s = string_of_amz_acl amz_acl in
   let headers = [
     "Date", now;
-    "x-amz-acl", acl_s;
+    "x-amz-acl", amz_acl_s;
     "Content-Type", content_type
   ]
   in
   let string_to_sign = sprintf "%s\n\n%s\n%s\nx-amz-acl:%s\n/%s" 
-    (string_of_http_method `PUT) content_type now acl_s bucket_object in
+    (string_of_http_method `PUT) content_type now amz_acl_s bucket_object in
   let authorization_header = authorization_header creds string_to_sign in
   let headers = authorization_header :: headers in
   (* [close] closes the input channel, if any *)
@@ -240,7 +243,7 @@ let put_object
 	`InChannel (file_size, inchan), fun _ -> Lwt_io.close inchan
   in
   try_lwt
-    lwt _ = HC.put ~headers:headers ~body:request_body request_url in
+    lwt _ = HC.put ~headers ~body:request_body request_url in
     lwt () = close () in
     return `Ok
   with 
@@ -252,6 +255,7 @@ let put_object
       raise exn
 
 
+(* get object metadata *)
 let assoc_header headers err name =
   let name = String.lowercase name in
   try
@@ -289,6 +293,7 @@ let get_object_metadata creds ~s3_bucket ~s3_object =
     | HC.Http_error (_,_,body) -> error_msg body
     
   
+(* list objects *)
 let option_pcdata err = function
   | [X.PCData x] -> Some x
   | [] -> None
@@ -366,7 +371,7 @@ let list_objects creds s3_bucket =
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
 
-
+(* get bucket acl *)
 type permission = [
 | `read 
 | `write
@@ -391,26 +396,47 @@ let permission_of_string = function
   | x -> raise (Error (sprintf "invalid permission %S" x))
 
 
-type grantee = [ 
+class canonical_user ~id ~display_name =
+object
+  method id : string = id
+  method display_name : string = display_name
+end
+
+type identity = [ 
 | `amazon_customer_by_email of string
-| `canonical_user of < display_name : string; id : string >
+| `canonical_user of canonical_user
 | `group of string 
 ]
 
-let string_of_grantee = function
+type aclz = < 
+  owner : identity;
+  grants : (identity * permission) list
+ >
+
+type grant = identity * permission
+
+class acl owner grants =
+object 
+  method owner : identity = owner
+  method grants : grant list = grants
+end
+
+
+let string_of_identity = function
 | `amazon_customer_by_email em -> "AmazonCustomerByEmail " ^ em
 | `canonical_user cn -> sprintf "CanonicalUser (%s,%s)" cn#id cn#display_name
 | `group g -> "Group " ^ g
 
+let tag_of_identity = function 
+| `amazon_customer_by_email _ -> "AmazonCustomerByEmail"
+| `canonical_user _ -> "CanonicalUser"
+| `group _ -> "Group"
 
-let grantee_of_xml = function 
+let identity_of_xml = function 
   | [X.Element ("ID",_,[X.PCData id]);
      X.Element ("DisplayName",_,[X.PCData display_name])
     ] ->
-    `canonical_user (object 
-      method id = id 
-      method display_name = display_name
-    end)
+    `canonical_user (new canonical_user id display_name)
 
   | [X.Element ("EmailAddress",_,[X.PCData email_address])] ->
     `amazon_customer_by_email email_address
@@ -421,28 +447,24 @@ let grantee_of_xml = function
   | _ ->
     raise (Error "grantee")
 
+let grant_of_xml = function
+  | X.Element ("Grant",_, [
+    X.Element ("Grantee", grantee_atts, grantee_x);
+    X.Element ("Permission",_,[X.PCData permission_s])  ]) ->
+    let grantee = identity_of_xml grantee_x in
+    let permission = permission_of_string permission_s in
+    (grantee, permission)
+
+  | _ ->
+    raise (Error "Grant")
+
 let access_control_policy_of_xml = function
   | X.Element ("AccessControlPolicy",_,[
-    X.Element ("Owner",_,[
-      X.Element ("ID",_,[X.PCData owner_id]);
-      X.Element ("DisplayName",_,[X.PCData owner_display_name])
-    ]);
-    X.Element ("AccessControlList",_,[
-      X.Element ("Grant",_,[
-	X.Element ("Grantee", grantee_atts, grantee_x);
-	X.Element ("Permission",_,[X.PCData permission_s])
-      ])
-    ])
-  ]) ->
-    let grantee = grantee_of_xml grantee_x in
-    let permission = permission_of_string permission_s in
-
-    (object
-      method owner_id = owner_id
-      method owner_display_name = owner_display_name
-      method grantee = grantee
-      method permission = permission
-     end)
+    X.Element ("Owner", _, owner_x);
+    X.Element ("AccessControlList", _, grants_x) ]) ->
+    let owner = identity_of_xml owner_x in
+    let grants = List.map grant_of_xml grants_x in
+    new acl owner grants
   | _ ->
     raise (Error "AccessControlPolicy:t")
 
@@ -462,5 +484,71 @@ let get_bucket_acl creds s3_bucket =
     | HC.Http_error (_,_,body) -> error_msg body
 
   
+(* put bucket acl *)
+let xml_of_permission permission = 
+  X.Element ("Permission",[],[X.PCData (string_of_permission permission)])
+
+let atts s = [ 
+  "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance";
+  "xsi:type", s
+]
+
+let xml_of_identity = function
+  | `amazon_customer_by_email email ->
+    [X.Element("EmailAddress",[],[X.PCData email])]
+
+  | `canonical_user cn ->
+    [X.Element ("ID",[],[X.PCData cn#id]);
+     X.Element ("DisplayName",[],[X.PCData cn#display_name])]
+
+  | `group uri ->
+    [X.Element("URI",[],[X.PCData uri])]
+
+let xml_of_grantee identity = 
+  let identity_x = xml_of_identity identity in
+  X.Element("Grantee", atts (tag_of_identity identity), identity_x)
+
+let xml_of_owner identity =
+  let identity_x = xml_of_identity identity in
+  X.Element ("Owner",[], identity_x)
+
+let xml_of_grant (grantee, permission) = 
+  let kids = [xml_of_grantee grantee; xml_of_permission permission] in
+  X.Element("Grant", [], kids)
+
+let xml_of_access_control_list grants =
+  X.Element("AccessControlList", [], List.map xml_of_grant grants)
+
+let xml_of_access_control_policy acl =
+  let kids = [ 
+    xml_of_owner acl#owner ; 
+    xml_of_access_control_list acl#grants ] 
+  in
+  X.Element ("AccessControlPolicy", [], kids)
+
+let set_bucket_acl creds s3_bucket acl  =
+  let now = now_as_string () in
+  let content_type = "application/xml" in 
+  let string_to_sign = sprintf "%s\n\n%s\n%s\n/%s?acl" 
+      (string_of_http_method `PUT) content_type now s3_bucket 
+  in
+  let request_url = service_url ^ (Util.encode_url s3_bucket) ^ "?acl" in  
+  let authorization_header = authorization_header creds string_to_sign in  
+  let headers = [ 
+    "Date", now ; 
+    "Content-Type", content_type; 
+    authorization_header 
+  ] 
+  in
+  let xml = xml_of_access_control_policy acl in
+  let body = Util.string_of_xml xml in
+  print_endline body;
+  let body = `String body in
+  try_lwt
+    lwt _ = HC.put ~headers ~body request_url in
+    return `Ok
+  with 
+    | HC.Http_error (404,_,_) -> return `NotFound
+    | HC.Http_error (_,_,body) -> error_msg body
 
   

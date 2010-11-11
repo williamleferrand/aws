@@ -57,3 +57,8 @@ let encode_key_equals_value kvs =
 let file_size path =
   let s = Unix.stat path in
   s.Unix.st_size
+
+let xml_declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+
+let string_of_xml = Xml.to_string 
+  (* xml_declaration ^ (Xml.to_string x) *)

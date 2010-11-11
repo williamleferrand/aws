@@ -34,9 +34,9 @@
 
 exception Error of string
 
-type acl = [ `Private ]
+type amz_acl = [ `Private ]
 
-val create_bucket : Creds.t ->  string ->  acl -> 
+val create_bucket : Creds.t ->  string -> amz_acl -> 
   [> `Error of string | `Ok ] Lwt.t
 
 val delete_bucket : Creds.t ->  string ->  
@@ -61,7 +61,7 @@ val get_object :
 
 val put_object : 
   ?content_type:string ->
-  ?acl:acl ->
+  ?amz_acl:amz_acl ->
   Creds.t ->  
   s3_bucket:string ->
   s3_object:string -> 
@@ -85,7 +85,7 @@ val get_object_metadata :
   
 val list_objects :
   Creds.t ->
-  s3_bucket:string -> 
+  string -> 
   [> `Error of string 
   | `NotFound 
   | `Ok of < 
@@ -114,23 +114,39 @@ type permission = [
 | `full_control
 ]
 val string_of_permission : permission -> string
+val permission_of_string : string -> permission
 
-type grantee = [ 
+type identity = [ 
 | `amazon_customer_by_email of string
 | `canonical_user of < display_name : string; id : string >
 | `group of string 
 ]
-val string_of_grantee : grantee -> string
+val string_of_identity : identity -> string
+
+class canonical_user : id:string -> display_name:string -> 
+object 
+  method display_name : string 
+  method id : string 
+end
+
+type grant = identity * permission
+
+class acl : identity -> grant list ->
+object
+  method grants : grant list
+  method owner : identity
+end
 
 val get_bucket_acl :
   Creds.t ->
-  s3_bucket:string -> 
+  string -> 
   [> `Error of string 
   | `NotFound 
-  | `Ok of < 
-      grantee : grantee;
-      owner_display_name : string; 
-      owner_id : string;
-      permission : permission
-    >
+  | `Ok of acl
   ] Lwt.t
+
+val set_bucket_acl :
+  Creds.t ->
+  string ->
+  acl ->
+  [> `Error of string | `NotFound | `Ok ] Lwt.t
