@@ -89,10 +89,10 @@ let group_by_key kv_list =
   let map = List.fold_left (
     fun map (k,v) ->
       let v_list =
-	try 
-	  StringMap.find k map
-	with Not_found ->
-	  []
+        try 
+          StringMap.find k map
+        with Not_found ->
+          []
       in
       StringMap.add k (v :: v_list) map
   ) StringMap.empty kv_list
@@ -139,18 +139,18 @@ let sub_resource_of_string = function
 | _ -> raise (Error "subresource")
 
 let string_of_sub_resource = function
-| `acl 		   -> "acl"            
-| `location	   -> "location"       
-| `logging	   -> "logging"        
-| `notification	   -> "notification"   
-| `part_number	   -> "partNumber"     
-| `policy	   -> "policy"         
+| `acl                    -> "acl"            
+| `location           -> "location"       
+| `logging           -> "logging"        
+| `notification           -> "notification"   
+| `part_number           -> "partNumber"     
+| `policy           -> "policy"         
 | `request_payment -> "requestPayment" 
-| `torrent 	   -> "torrent"        
-| `upload_id	   -> "uploadId"       
-| `uploads	   -> "uploads"        
-| `version_id	   -> "versionId"      
-| `versioning	   -> "versioning"     
+| `torrent            -> "torrent"        
+| `upload_id           -> "uploadId"       
+| `uploads           -> "uploads"        
+| `version_id           -> "versionId"      
+| `versioning           -> "versioning"     
 | `versions        -> "versions"       
 
 class buffer size =
@@ -175,23 +175,23 @@ let auth_hdr
     match amz_headers with
       | [] -> ""
       | _ -> (
-	let downcased_keys = List.map (
-	  fun (k,v) -> String.lowercase k, squash_whitespace v
-	) amz_headers 
-	in
-	let grouped = group_by_key downcased_keys in
-	let merged_values = List.map (
-	  fun (k,v_list) -> k, (String.concat "," v_list)
-	) grouped 
-	in
-	let sorted_by_key = Util.sort_assoc_list merged_values in
+        let downcased_keys = List.map (
+          fun (k,v) -> String.lowercase k, squash_whitespace v
+        ) amz_headers 
+        in
+        let grouped = group_by_key downcased_keys in
+        let merged_values = List.map (
+          fun (k,v_list) -> k, (String.concat "," v_list)
+        ) grouped 
+        in
+        let sorted_by_key = Util.sort_assoc_list merged_values in
 
-	let buf = new buffer 10 in
-	List.iter (
-	  fun (k,v) ->
-	    buf#add k; buf#add ":"; buf#add v; buf#add "\n"
-	) sorted_by_key;
-	buf#contents
+        let buf = new buffer 10 in
+        List.iter (
+          fun (k,v) ->
+            buf#add k; buf#add ":"; buf#add v; buf#add "\n"
+        ) sorted_by_key;
+        buf#contents
       )
   in
 
@@ -199,22 +199,22 @@ let auth_hdr
     match sub_resources with
       | [] -> ""
       | _ -> (
-	let sub_resources_s = List.map (
-	  fun (k,vo) -> string_of_sub_resource k, vo
-	) sub_resources
-	in
-	let sorted_sub_resources_s = Util.sort_assoc_list sub_resources_s in
+        let sub_resources_s = List.map (
+          fun (k,vo) -> string_of_sub_resource k, vo
+        ) sub_resources
+        in
+        let sorted_sub_resources_s = Util.sort_assoc_list sub_resources_s in
 
-	let buf = new buffer 10 in
-	buf#add "?";
+        let buf = new buffer 10 in
+        buf#add "?";
 
-	List.iter (
-	  fun (k, v_opt) ->
-	    match v_opt with
-	      | Some v -> buf#add k; buf#add "&"; buf#add v
-	      | None -> buf#add k
-	) sorted_sub_resources_s;
-	buf#contents
+        List.iter (
+          fun (k, v_opt) ->
+            match v_opt with
+              | Some v -> buf#add k; buf#add "&"; buf#add v
+              | None -> buf#add k
+        ) sorted_sub_resources_s;
+        buf#contents
       )
   in
   let canonicalized_resource =
@@ -240,8 +240,8 @@ let error_msg body =
     | X.Element ("Error",_, (X.Element ("Code",_, [X.PCData msg])) :: _ ) -> 
       return (`Error msg)
     | _ -> 
-	(* complain if can't interpret the xml, and then just use the
-	   entire body as the payload for the exception *)
+        (* complain if can't interpret the xml, and then just use the
+           entire body as the payload for the exception *)
       fail (Error body)
 
 let get_object_h creds_opt ~bucket ~objekt =
@@ -250,15 +250,15 @@ let get_object_h creds_opt ~bucket ~objekt =
     match creds_opt with
       | None -> [] (* anonymous *)
       | Some creds ->
-	[ auth_hdr 
-	  ~http_method:`GET 
-	  ~date 
-	  ~bucket 
-	  ~request_uri:("/" ^ objekt) 
-	  creds
-	]
+        [ auth_hdr 
+          ~http_method:`GET 
+          ~date 
+          ~bucket 
+          ~request_uri:("/" ^ objekt) 
+          creds
+        ]
   in
-	
+        
   let headers = ("Date", date) :: authorization_header in
   let request_url = sprintf "%s%s/%s" service_url 
     (Util.encode_url bucket) (Util.encode_url objekt) 
@@ -388,12 +388,12 @@ let put_object
   let request_body, close =
     match body with
       | `String contents -> 
-	`String contents, noop
+        `String contents, noop
       | `File path -> 
-	let file_size = Util.file_size path in
-	let flags = [Unix.O_RDONLY] in
-	let inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
-	`InChannel (file_size, inchan), fun _ -> Lwt_io.close inchan
+        let file_size = Util.file_size path in
+        let flags = [Unix.O_RDONLY] in
+        let inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
+        `InChannel (file_size, inchan), fun _ -> Lwt_io.close inchan
   in
   try_lwt
     lwt _ = HC.put ~headers ~body:request_body request_url in
@@ -455,28 +455,28 @@ let rec list_bucket_result_of_xml = function
   | X.Element ("ListBucketResult",_,kids) -> (
     match kids with 
       | X.Element ("Name",_,[X.PCData name]) ::
-	  X.Element ("Prefix",_,prefix_opt) ::
-	  X.Element ("Marker",_,marker_opt) ::
-	  X.Element ("MaxKeys",_,[X.PCData max_keys]) ::
-	  X.Element ("IsTruncated",_,[X.PCData is_truncated]) ::
-	  contents ->
+          X.Element ("Prefix",_,prefix_opt) ::
+          X.Element ("Marker",_,marker_opt) ::
+          X.Element ("MaxKeys",_,[X.PCData max_keys]) ::
+          X.Element ("IsTruncated",_,[X.PCData is_truncated]) ::
+          contents ->
 
-	let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
-	let marker_opt = option_pcdata "ListBucketResult:marker" marker_opt in
-	let max_keys = int_of_string max_keys in
-	let is_truncated = bool_of_string is_truncated in
-	let contents = contents_of_xml contents in
+        let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
+        let marker_opt = option_pcdata "ListBucketResult:marker" marker_opt in
+        let max_keys = int_of_string max_keys in
+        let is_truncated = bool_of_string is_truncated in
+        let contents = contents_of_xml contents in
 
         (object 
-	  method name = name
-	  method prefix = prefix_opt
-	  method marker = marker_opt
-	  method max_keys = max_keys
-	  method is_truncated = is_truncated
-	  method objects = contents
-	 end)
+          method name = name
+          method prefix = prefix_opt
+          method marker = marker_opt
+          method max_keys = max_keys
+          method is_truncated = is_truncated
+          method objects = contents
+         end)
       | _ ->
-	raise (Error "ListBucketResult:k")
+        raise (Error "ListBucketResult:k")
   )
   | _ ->
     raise (Error "ListBucketResult:t")

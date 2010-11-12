@@ -10,9 +10,7 @@ Aws depends on the following packages:
 -  calendar
 -  lwt
 -  xml-light
--  cohttp: forked from to [avsm's
-     cohttp](http://github.com/avs/ocaml-cohttp) to [barko's
-     cohttp](http://github.com/barko/ocaml-cohttp)
+-  [cohttp](http://github.com/avsm/ocaml-cohttp)
 
 All of the packages except the last are available via GODI.  
 

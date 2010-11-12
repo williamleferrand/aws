@@ -59,11 +59,11 @@ let list_buckets creds () =
   let exit_code = 
     match result with
       | `Ok bucket_infos -> 
-	List.iter (
-	  fun b -> 
-	    printf "%s\t%s\n" b#creation_date b#name
-	) bucket_infos;
-	0
+        List.iter (
+          fun b -> 
+            printf "%s\t%s\n" b#creation_date b#name
+        ) bucket_infos;
+        0
       | `Error body -> print_endline body; 1
   in
   return exit_code
@@ -117,13 +117,13 @@ let get_object_metadata creds bucket objekt () =
   let exit_code = 
     match result with
       | `Ok m -> 
-	print_kv_list [
-	  "Content-Type", m#content_type;
-	  "Content-Length", string_of_int m#content_length;
-	  "ETag", m#etag;
-	  "Last-Modified", m#last_modified
-	];
-	0
+        print_kv_list [
+          "Content-Type", m#content_type;
+          "Content-Length", string_of_int m#content_length;
+          "ETag", m#etag;
+          "Last-Modified", m#last_modified
+        ];
+        0
       | `NotFound -> printf "%S/%S not found\n%!" bucket objekt; 1
       | `Error msg -> print_endline msg; 1
   in
@@ -138,25 +138,25 @@ let list_objects creds s3_bucket () =
   let exit_code = 
     match result with
       | `Ok res -> 
-	print_kv_list [ 
-	  "name", res#name; 
-	  "prefix", (some_or_empty res#prefix);
-	  "marker", (some_or_empty res#marker);
-	  "truncated", (string_of_bool res#is_truncated);
-	  "objects", ""
-	];
-	List.iter (
-	  fun o ->
-	    printf "%s\t%s\t%s\t%d\t%s\t%s\t%s\n" 
-	      o#name 
-	      o#last_modified 
-	      o#etag 
-	      o#size 
-	      o#storage_class 
-	      o#owner_id 
-	      o#owner_display_name
-	) res#objects;
-	0
+        print_kv_list [ 
+          "name", res#name; 
+          "prefix", (some_or_empty res#prefix);
+          "marker", (some_or_empty res#marker);
+          "truncated", (string_of_bool res#is_truncated);
+          "objects", ""
+        ];
+        List.iter (
+          fun o ->
+            printf "%s\t%s\t%s\t%d\t%s\t%s\t%s\n" 
+              o#name 
+              o#last_modified 
+              o#etag 
+              o#size 
+              o#storage_class 
+              o#owner_id 
+              o#owner_display_name
+        ) res#objects;
+        0
       | `NotFound -> printf "bucket %S not found\n%!" s3_bucket; 1
       | `Error msg -> print_endline msg; 1
   in
@@ -167,14 +167,14 @@ let get_bucket_acl creds s3_bucket () =
   let exit_code = 
     match result with
       | `Ok acl -> 
-	printf "owner: %s\n" (S3.string_of_identity acl#owner);
-	print_endline "grants:";
-	List.iter (
-	  fun (grantee, permission) ->
-	    printf "%s: %s\n" (S3.string_of_identity grantee)
-	      (S3.string_of_permission permission);
-	) acl#grants;
-	0
+        printf "owner: %s\n" (S3.string_of_identity acl#owner);
+        print_endline "grants:";
+        List.iter (
+          fun (grantee, permission) ->
+            printf "%s: %s\n" (S3.string_of_identity grantee)
+              (S3.string_of_permission permission);
+        ) acl#grants;
+        0
       | `NotFound -> printf "bucket %S not found\n%!" s3_bucket; 1
       | `Error msg -> print_endline msg; 1
   in
@@ -198,17 +198,17 @@ let grant_permission creds s3_bucket
     match result with
       | `Ok acl -> (
       
-	(* now that we have the acl, modified it by adding to it yet another grant *)
-	let grant = grantee, S3.permission_of_string permission in
-	let acl_1 = new S3.acl acl#owner (grant :: acl#grants) in
-	lwt result = S3.set_bucket_acl creds s3_bucket acl_1 in
+        (* now that we have the acl, modified it by adding to it yet another grant *)
+        let grant = grantee, S3.permission_of_string permission in
+        let acl_1 = new S3.acl acl#owner (grant :: acl#grants) in
+        lwt result = S3.set_bucket_acl creds s3_bucket acl_1 in
         let exit_code = 
           match result with
-	    | `Ok -> print_endline "ok"; 0
-	    | `NotFound -> printf "setting bucket acl on %S failed\n%!" s3_bucket; 1
-	    | `Error msg -> print_endline msg; 1
-	in
-	return exit_code
+            | `Ok -> print_endline "ok"; 0
+            | `NotFound -> printf "setting bucket acl on %S failed\n%!" s3_bucket; 1
+            | `Error msg -> print_endline msg; 1
+        in
+        return exit_code
       )
 
       | `NotFound -> printf "getting bucket acl on %S failed\n%!" s3_bucket; return 1
@@ -249,22 +249,22 @@ let revoke_permission creds s3_bucket
       | `Ok acl -> (
 
         (* find the grant needing to be removed *)
-	let grants_1 = List.filter (fun g -> grants_not_equal g grant) acl#grants in
-	if List.length grants_1 = List.length acl#grants then (
-	  print_endline "grant to be removed not found"; 
-	  return 1
-	)
-	else (
+        let grants_1 = List.filter (fun g -> grants_not_equal g grant) acl#grants in
+        if List.length grants_1 = List.length acl#grants then (
+          print_endline "grant to be removed not found"; 
+          return 1
+        )
+        else (
           (* construct a new acl without that grant *)
-	  let acl_1 = new S3.acl acl#owner grants_1 in
-	  lwt result = S3.set_bucket_acl creds s3_bucket acl_1 in
+          let acl_1 = new S3.acl acl#owner grants_1 in
+          lwt result = S3.set_bucket_acl creds s3_bucket acl_1 in
           let exit_code = 
             match result with
-		| `Ok -> print_endline "ok"; 0
-		| `NotFound -> printf "setting bucket acl on %S failed\n%!" s3_bucket; 1
-		| `Error msg -> print_endline msg; 1
-	  in
-	  return exit_code
+                | `Ok -> print_endline "ok"; 0
+                | `NotFound -> printf "setting bucket acl on %S failed\n%!" s3_bucket; 1
+                | `Error msg -> print_endline msg; 1
+          in
+          return exit_code
         )
       )
 
@@ -291,53 +291,53 @@ let _ =
   let command = 
     match Sys.argv with
       | [| _; "delete-bucket"; bucket |] -> 
-	delete_bucket creds bucket
+        delete_bucket creds bucket
 
       | [| _; "create-bucket"; bucket |] -> 
-	create_bucket creds bucket 
+        create_bucket creds bucket 
 
       | [| _; "get-object-s"; bucket; objekt |] -> 
-	get_object_s creds bucket objekt
+        get_object_s creds bucket objekt
 
       | [| _; "get-object"; bucket; objekt; path|] -> 
-	get_object creds bucket objekt path
+        get_object creds bucket objekt path
 
       | [| _; "put-object"; bucket; objekt ; path |] -> 
-	put_object creds bucket objekt path
+        put_object creds bucket objekt path
 
       | [| _; "put-object-s"; bucket; objekt ; contents |] -> 
-	put_object_s creds bucket objekt contents
+        put_object_s creds bucket objekt contents
 
       | [| _; "get-object-metadata"; bucket ; objekt |] -> 
-	get_object_metadata creds bucket objekt
+        get_object_metadata creds bucket objekt
 
       | [| _; "list-objects"; bucket |] -> 
-	list_objects creds bucket
+        list_objects creds bucket
 
       | [| _; "get-bucket-acl"; bucket |] -> 
-	get_bucket_acl creds bucket
+        get_bucket_acl creds bucket
 
       | [| _; "grant-permission"; bucket; 
-	   grantee_aws_id; grantee_aws_display_name;
-	   permission
-	|] -> 
-	grant_permission creds bucket 
-	  ~grantee_aws_id ~grantee_aws_display_name 
-	  ~permission
+           grantee_aws_id; grantee_aws_display_name;
+           permission
+        |] -> 
+        grant_permission creds bucket 
+          ~grantee_aws_id ~grantee_aws_display_name 
+          ~permission
 
       | [| _; "revoke-permission"; bucket; 
-	   grantee_aws_id; grantee_aws_display_name;
-	   permission
-	|] -> 
-	revoke_permission creds bucket 
-	  ~grantee_aws_id ~grantee_aws_display_name 
-	  ~permission
+           grantee_aws_id; grantee_aws_display_name;
+           permission
+        |] -> 
+        revoke_permission creds bucket 
+          ~grantee_aws_id ~grantee_aws_display_name 
+          ~permission
 
       | [| _; "list-buckets" |] -> 
-	list_buckets creds
+        list_buckets creds
 
       | _ -> 
-	print_endline "unknown command" ; exit 1
+        print_endline "unknown command" ; exit 1
 
   in
   let exit_code = Lwt_unix.run (command ()) in

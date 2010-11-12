@@ -102,12 +102,12 @@ val list_objects :
       max_keys : int; 
       is_truncated : bool; 
       objects : < 
-	etag : string; 
+        etag : string; 
         last_modified : string;
         name : string; 
-	owner_display_name : string;
+        owner_display_name : string;
         owner_id : string; 
-	size : int;
+        size : int;
         storage_class : string 
       > list;
     > 
