@@ -61,4 +61,8 @@ let file_size path =
 let xml_declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 
 let string_of_xml = Xml.to_string 
-  (* xml_declaration ^ (Xml.to_string x) *)
+
+let sort_assoc_list kv_list = 
+  List.sort (fun (k1,_) (k2,_) -> String.compare k1 k2) kv_list
+  
+  

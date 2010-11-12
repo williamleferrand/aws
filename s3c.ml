@@ -68,28 +68,28 @@ let list_buckets creds () =
   in
   return exit_code
 
-let get_object_s creds s3_bucket s3_object () =
-  lwt result = S3.get_object_s (Some creds) ~s3_bucket ~s3_object in
+let get_object_s creds bucket objekt () =
+  lwt result = S3.get_object_s (Some creds) ~bucket ~objekt in
   let exit_code = 
     match result with
       | `Ok body -> print_string body; 0
-      | `NotFound -> printf "%s/%s not found\n%!" s3_bucket s3_object; 0
+      | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
   in
   return exit_code
 
-let get_object creds s3_bucket s3_object path () =
-  lwt result = S3.get_object (Some creds) ~s3_bucket ~s3_object ~path in
+let get_object creds bucket objekt path () =
+  lwt result = S3.get_object (Some creds) ~bucket ~objekt ~path in
   let exit_code = 
     match result with
       | `Ok -> print_endline "ok"; 0
-      | `NotFound -> printf "%s/%s not found\n%!" s3_bucket s3_object; 0
+      | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
   in
   return exit_code
 
-let put_object creds s3_bucket s3_object path () =
-  lwt result = S3.put_object creds ~s3_bucket ~s3_object ~body:(`File path) in
+let put_object creds bucket objekt path () =
+  lwt result = S3.put_object creds ~bucket ~objekt ~body:(`File path) in
   let exit_code = 
     match result with
       | `Ok -> 0
@@ -97,8 +97,8 @@ let put_object creds s3_bucket s3_object path () =
   in
   return exit_code
 
-let put_object_s creds s3_bucket s3_object contents () =
-  lwt result = S3.put_object creds ~s3_bucket ~s3_object ~body:(`String contents) in
+let put_object_s creds bucket objekt contents () =
+  lwt result = S3.put_object creds ~bucket ~objekt ~body:(`String contents) in
   let exit_code = 
     match result with
       | `Ok -> 0
@@ -112,8 +112,8 @@ let print_kv_list kv_list =
       printf "%s: %s\n" k v
   ) kv_list
 
-let get_object_metadata creds s3_bucket s3_object () =
-  lwt result = S3.get_object_metadata creds ~s3_bucket ~s3_object in
+let get_object_metadata creds bucket objekt () =
+  lwt result = S3.get_object_metadata creds ~bucket ~objekt in
   let exit_code = 
     match result with
       | `Ok m -> 
@@ -124,7 +124,7 @@ let get_object_metadata creds s3_bucket s3_object () =
 	  "Last-Modified", m#last_modified
 	];
 	0
-      | `NotFound -> printf "%S/%S not found\n%!" s3_bucket s3_object; 1
+      | `NotFound -> printf "%S/%S not found\n%!" bucket objekt; 1
       | `Error msg -> print_endline msg; 1
   in
   return exit_code

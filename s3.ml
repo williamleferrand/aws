@@ -50,9 +50,6 @@ let parse_date_string str =
   P.from_fstring "%Y-%M-%dT%H:%M:%S.%z" str
 *)
 
-let now_header () =
-  "Date", now_as_string ()
-
 type http_method = [`GET | `POST | `HEAD | `DELETE ]
 
 let string_of_http_method = function
@@ -71,11 +68,158 @@ let sign key string_to_sign =
   let hashed_string_to_sign = K.hash_string hmac_sha1 string_to_sign in
   Util.base64 hashed_string_to_sign
 
-let authorization_header creds string_to_sign =
+exception Error of string
+
+module StringMap = Map.Make(String)
+
+let group_by_key kv_list =
+  let map = List.fold_left (
+    fun map (k,v) ->
+      let v_list =
+	try 
+	  StringMap.find k map
+	with Not_found ->
+	  []
+      in
+      StringMap.add k (v :: v_list) map
+  ) StringMap.empty kv_list
+  in
+  StringMap.fold (
+    fun k v_list accu ->
+      (k, v_list) :: accu
+  ) map []
+
+(* replace a substring of whitespace with a single space *)
+let squash_whitespace = 
+  Pcre.replace ~rex:(Pcre.regexp "[[:space:]]+") ~templ:" "
+
+type sub_resource = [ 
+| `acl 
+| `location
+| `logging
+| `notification
+| `part_number
+| `policy
+| `request_payment
+| `torrent
+| `upload_id
+| `uploads
+| `version_id
+| `versioning
+| `versions
+]
+
+let sub_resource_of_string = function
+| "acl"            -> `acl 
+| "location"       -> `location
+| "logging"        -> `logging
+| "notification"   -> `notification
+| "partNumber"     -> `part_number
+| "policy"         -> `policy
+| "requestPayment" -> `request_payment
+| "torrent"        -> `torrent 
+| "uploadId"       -> `upload_id
+| "uploads"        -> `uploads
+| "versionId"      -> `version_id
+| "versioning"     -> `versioning
+| "versions"       -> `versions
+| _ -> raise (Error "subresource")
+
+let string_of_sub_resource = function
+| `acl 		   -> "acl"            
+| `location	   -> "location"       
+| `logging	   -> "logging"        
+| `notification	   -> "notification"   
+| `part_number	   -> "partNumber"     
+| `policy	   -> "policy"         
+| `request_payment -> "requestPayment" 
+| `torrent 	   -> "torrent"        
+| `upload_id	   -> "uploadId"       
+| `uploads	   -> "uploads"        
+| `version_id	   -> "versionId"      
+| `versioning	   -> "versioning"     
+| `versions        -> "versions"       
+
+class buffer size =
+  let b = Buffer.create size in
+object
+  method add s = Buffer.add_string b s
+  method contents = Buffer.contents b
+end
+
+let auth_hdr
+    ?(http_method=`GET)
+    ?(content_type="")
+    ?(content_md5="")
+    ?(date="")
+    ?(bucket="") 
+    ?(request_uri="")
+    ?(amz_headers=[])
+    ?(sub_resources=[])
+    creds =
+
+  let canonicalized_amz_headers = 
+    match amz_headers with
+      | [] -> ""
+      | _ -> (
+	let downcased_keys = List.map (
+	  fun (k,v) -> String.lowercase k, squash_whitespace v
+	) amz_headers 
+	in
+	let grouped = group_by_key downcased_keys in
+	let merged_values = List.map (
+	  fun (k,v_list) -> k, (String.concat "," v_list)
+	) grouped 
+	in
+	let sorted_by_key = Util.sort_assoc_list merged_values in
+
+	let buf = new buffer 10 in
+	List.iter (
+	  fun (k,v) ->
+	    buf#add k; buf#add ":"; buf#add v; buf#add "\n"
+	) sorted_by_key;
+	buf#contents
+      )
+  in
+
+  let canonicalized_sub_resources = 
+    match sub_resources with
+      | [] -> ""
+      | _ -> (
+	let sub_resources_s = List.map (
+	  fun (k,vo) -> string_of_sub_resource k, vo
+	) sub_resources
+	in
+	let sorted_sub_resources_s = Util.sort_assoc_list sub_resources_s in
+
+	let buf = new buffer 10 in
+	buf#add "?";
+
+	List.iter (
+	  fun (k, v_opt) ->
+	    match v_opt with
+	      | Some v -> buf#add k; buf#add "&"; buf#add v
+	      | None -> buf#add k
+	) sorted_sub_resources_s;
+	buf#contents
+      )
+  in
+  let canonicalized_resource =
+    "/" ^ bucket ^ request_uri ^ canonicalized_sub_resources
+  in
+
+  let string_to_sign = 
+    let buf = new buffer 100 in
+    buf#add (string_of_http_method http_method); buf#add "\n";
+    buf#add content_md5; buf#add "\n";
+    buf#add content_type; buf#add "\n";
+    buf#add date; buf#add "\n";
+    buf#add canonicalized_amz_headers;
+    buf#add canonicalized_resource;
+    buf#contents
+  in
   let signature = sign creds.Creds.aws_secret_access_key string_to_sign in
   "Authorization", sprintf "AWS %s:%s" creds.Creds.aws_access_key_id signature
-
-exception Error of string
 
 let error_msg body = 
   (* <Error><Code>SomeMessage</Code>...</Error> *)
@@ -83,45 +227,48 @@ let error_msg body =
     | X.Element ("Error",_, (X.Element ("Code",_, [X.PCData msg])) :: _ ) -> 
       return (`Error msg)
     | _ -> 
-      (* complain if can't interpret the xml, and then just use the
-	 entire body as the payload for the exception *)
+	(* complain if can't interpret the xml, and then just use the
+	   entire body as the payload for the exception *)
       fail (Error body)
 
-let get_object_h creds_opt ~s3_bucket ~s3_object =
-  let now = now_as_string () in
+let get_object_h creds_opt ~bucket ~objekt =
+  let date = now_as_string () in
   let authorization_header = 
     match creds_opt with
       | None -> [] (* anonymous *)
       | Some creds ->
-	let string_to_sign = sprintf "%s\n\n\n%s\n/%s/%s" 
-	  (string_of_http_method `GET) now s3_bucket s3_object
-	in
-	[ authorization_header creds string_to_sign ]
+	[ auth_hdr 
+	  ~http_method:`GET 
+	  ~date 
+	  ~bucket 
+	  ~request_uri:("/" ^ objekt) 
+	  creds
+	]
   in
 	
-  let headers = ("Date", now) :: authorization_header in
+  let headers = ("Date", date) :: authorization_header in
   let request_url = sprintf "%s%s/%s" service_url 
-    (Util.encode_url s3_bucket) (Util.encode_url s3_object) 
+    (Util.encode_url bucket) (Util.encode_url objekt) 
   in
   headers, request_url
 
 (* get object *)
-let get_object_s creds_opt ~s3_bucket ~s3_object =
-  let headers, request_url = get_object_h creds_opt ~s3_bucket ~s3_object in
+let get_object_s creds_opt ~bucket ~objekt =
+  let headers, request_url = get_object_h creds_opt ~bucket ~objekt in
   try_lwt
-    lwt _, body = HC.get ~headers:headers request_url in
+    lwt _, body = HC.get ~headers request_url in
     return (`Ok body)
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_, _, body) -> error_msg body
 
-let get_object creds_opt ~s3_bucket ~s3_object ~path =
-  let headers, request_url = get_object_h creds_opt ~s3_bucket ~s3_object in
-  let flags = [ Unix.O_CREAT; Unix.O_WRONLY; Unix.O_APPEND ] in
+let get_object creds_opt ~bucket ~objekt ~path =
+  let headers, request_url = get_object_h creds_opt ~bucket ~objekt in
+  let flags = [ Unix.O_CREAT; Unix.O_WRONLY; Unix.O_APPEND; Unix.O_TRUNC ] in
   let outchan = Lwt_io.open_file ~flags ~mode:Lwt_io.output path in
   lwt res = 
     try_lwt
-      lwt _ = HC.get_to_chan ~headers:headers request_url outchan in
+      lwt _ = HC.get_to_chan ~headers request_url outchan in
       return `Ok
     with 
       | HC.Http_error (404,_,_) -> return `NotFound
@@ -131,37 +278,30 @@ let get_object creds_opt ~s3_bucket ~s3_object ~path =
   return res
   
 (* create bucket *)
-let create_bucket creds s3_bucket amz_acl =
-  let now = now_as_string () in
-  let amz_acl_s = string_of_amz_acl amz_acl in
-  let string_to_sign = sprintf "%s\n\n\n%s\nx-amz-acl:%s\n/%s"
-    (string_of_http_method `PUT) now amz_acl_s s3_bucket 
+let create_bucket creds bucket amz_acl =
+  let date = now_as_string () in
+  let amz_headers = ["x-amz-acl", string_of_amz_acl amz_acl ] in
+  let authorization_header = auth_hdr 
+    ~http_method:`PUT ~bucket ~amz_headers ~date creds  
   in
-  let authorization_header = authorization_header creds string_to_sign in
-  let request_url = sprintf "http://s3.amazonaws.com/%s" s3_bucket in
-  let headers = [
-    authorization_header;
-    "Date", now; 
-    "x-amz-acl", amz_acl_s
-  ]
-  in
+  let request_url = sprintf "http://s3.amazonaws.com/%s" bucket in
+  let headers = authorization_header :: ("Date", date) :: amz_headers in
   try_lwt
-    lwt _ = HC.put ~headers:headers ?body:None request_url in
+    lwt _ = HC.put ~headers request_url in
     return `Ok
   with HC.Http_error (_, _, body) ->
     error_msg body
 
 (* delete bucket *)
-let delete_bucket creds s3_bucket =
-  let now = now_as_string () in
-  let string_to_sign = sprintf "%s\n\n\n%s\n/%s"
-    (string_of_http_method `DELETE) now s3_bucket 
+let delete_bucket creds bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr 
+    ~http_method:`DELETE ~bucket ~date creds  
   in
-  let authorization_header = authorization_header creds string_to_sign in
-  let request_url = sprintf "http://s3.amazonaws.com/%s" s3_bucket in
-  let headers = [ authorization_header; "Date", now ] in
+  let request_url = sprintf "http://s3.amazonaws.com/%s" (Util.encode_url bucket) in
+  let headers = [ authorization_header ; "Date", date ] in
   try_lwt
-    lwt _ = HC.delete ~headers:headers request_url in
+    lwt _ = HC.delete ~headers request_url in
     (* an `Ok response actually transmitted via a 204 *)
     fail (Error "delete_bucket")
   with 
@@ -189,13 +329,12 @@ and list_all_my_buckets_result_of_xml = function
   | _ -> raise (Error "ListAllMyBucketsResult:1")
 
 let list_buckets creds =
-  let now = now_as_string () in
-  let string_to_sign = sprintf "%s\n\n\n%s\n/" (string_of_http_method `GET) now in
-  let authorization_header = authorization_header creds string_to_sign in
-  let headers = [ authorization_header ; "Date", now ] in
+  let date = now_as_string () in
+  let authorization_header = auth_hdr ~http_method:`GET ~date creds in
+  let headers = [ authorization_header ; "Date", date ] in
   let request_url = service_url in
   try_lwt
-    lwt headers, body = HC.get ~headers:headers request_url in
+    lwt headers, body = HC.get ~headers request_url in
     try
       let buckets = list_all_my_buckets_result_of_xml (X.parse_string body) in
       return (`Ok buckets)
@@ -212,26 +351,27 @@ let put_object
     ?(content_type="binary/octet-stream")
     ?(amz_acl=`Private)
     creds 
-    ~s3_bucket 
-    ~s3_object 
+    ~bucket 
+    ~objekt 
     ~body =
-  let now = now_as_string () in
-  let bucket_object = (Util.encode_url s3_bucket) ^ "/" ^ 
-    (Util.encode_url s3_object) 
+  let date = now_as_string () in
+  let amz_headers = [ "x-amz-acl", string_of_amz_acl amz_acl ] in
+  let authorization_header = auth_hdr 
+    ~http_method:`PUT 
+    ~content_type 
+    ~amz_headers
+    ~date 
+    ~bucket 
+    ~request_uri:("/" ^ objekt) 
+    creds
+  in
+  let bucket_object = (Util.encode_url bucket) ^ "/" ^ 
+    (Util.encode_url objekt) 
   in
   let request_url = service_url ^ bucket_object in
-  let amz_acl_s = string_of_amz_acl amz_acl in
-  let headers = [
-    "Date", now;
-    "x-amz-acl", amz_acl_s;
-    "Content-Type", content_type
-  ]
+  let headers = ("Date", date) :: ("Content-Type", content_type) ::
+    authorization_header :: amz_headers
   in
-  let string_to_sign = sprintf "%s\n\n%s\n%s\nx-amz-acl:%s\n/%s" 
-    (string_of_http_method `PUT) content_type now amz_acl_s bucket_object in
-  let authorization_header = authorization_header creds string_to_sign in
-  let headers = authorization_header :: headers in
-  (* [close] closes the input channel, if any *)
   let request_body, close =
     match body with
       | `String contents -> 
@@ -264,14 +404,13 @@ let assoc_header headers err name =
   with Not_found ->
     raise (Error err)
 
-let get_object_metadata creds ~s3_bucket ~s3_object =
-  let now = now_as_string () in
-  let string_to_sign = sprintf "%s\n\n\n%s\n/%s/%s" 
-    (string_of_http_method `HEAD) now s3_bucket s3_object in
-  let authorization_header = authorization_header creds string_to_sign in
-  let headers = [ "Date", now ; authorization_header ] in
-  let bucket_object = (Util.encode_url s3_bucket) ^ "/" ^ 
-    (Util.encode_url s3_object) in
+let get_object_metadata creds ~bucket ~objekt =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`HEAD ~date ~bucket ~request_uri:("/" ^ objekt) creds
+  in
+  let headers = [ "Date", date ; authorization_header ] in
+  let bucket_object = (Util.encode_url bucket) ^ "/" ^ (Util.encode_url objekt) in
   let request_url = service_url ^ bucket_object in
   try_lwt
     lwt response_headers, _ = HC.head ~headers request_url in
@@ -357,13 +496,11 @@ and objects_of_xml = function
   | _ -> raise (Error "ListBucketResult:c")
     
 
-let list_objects creds s3_bucket =
-  let now = now_as_string () in
-  let string_to_sign = sprintf "%s\n\n\n%s\n/%s"
-    (string_of_http_method `GET) now s3_bucket in
-  let authorization_header = authorization_header creds string_to_sign in
-  let headers = [ "Date", now ; authorization_header ] in
-  let request_url = service_url ^ (Util.encode_url s3_bucket) in
+let list_objects creds bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr ~http_method:`GET ~date ~bucket creds in
+  let headers = [ "Date", date ; authorization_header ] in
+  let request_url = service_url ^ (Util.encode_url bucket) in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (list_bucket_result_of_xml (X.parse_string response_body)))
@@ -407,11 +544,6 @@ type identity = [
 | `canonical_user of canonical_user
 | `group of string 
 ]
-
-type aclz = < 
-  owner : identity;
-  grants : (identity * permission) list
- >
 
 type grant = identity * permission
 
@@ -468,14 +600,19 @@ let access_control_policy_of_xml = function
   | _ ->
     raise (Error "AccessControlPolicy:t")
 
-let get_bucket_acl creds s3_bucket =
-  let now = now_as_string () in
-  let string_to_sign = sprintf "%s\n\n\n%s\n/%s/?acl" 
-      (string_of_http_method `GET) now s3_bucket 
+let get_bucket_acl creds bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr 
+    ~http_method:`GET 
+    ~date 
+    ~bucket 
+    ~sub_resources:[`acl, None] 
+    creds
   in
-  let authorization_header = authorization_header creds string_to_sign in  
-  let headers = [ "Date", now ; authorization_header ] in
-  let request_url = service_url ^ (Util.encode_url s3_bucket) ^ "/?acl" in
+  let headers = [ "Date", date ; authorization_header ] in
+  let request_url = service_url ^ 
+    (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl) 
+  in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (access_control_policy_of_xml (X.parse_string response_body))) 
@@ -526,24 +663,23 @@ let xml_of_access_control_policy acl =
   in
   X.Element ("AccessControlPolicy", [], kids)
 
-let set_bucket_acl creds s3_bucket acl  =
-  let now = now_as_string () in
+let set_bucket_acl creds bucket acl  =
+  let date = now_as_string () in
   let content_type = "application/xml" in 
-  let string_to_sign = sprintf "%s\n\n%s\n%s\n/%s?acl" 
-      (string_of_http_method `PUT) content_type now s3_bucket 
+  let authorization_header = auth_hdr
+    ~http_method:`PUT 
+    ~content_type 
+    ~date 
+    ~bucket 
+    ~sub_resources:[`acl, None] 
+    creds
   in
-  let request_url = service_url ^ (Util.encode_url s3_bucket) ^ "?acl" in  
-  let authorization_header = authorization_header creds string_to_sign in  
-  let headers = [ 
-    "Date", now ; 
-    "Content-Type", content_type; 
-    authorization_header 
-  ] 
-  in
+  let request_url = service_url ^ 
+    (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl) 
+  in  
+  let headers = [ "Date", date ; "Content-Type", content_type; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
-  let body = Util.string_of_xml xml in
-  print_endline body;
-  let body = `String body in
+  let body = `String (Util.string_of_xml xml) in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok

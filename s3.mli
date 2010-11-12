@@ -48,14 +48,14 @@ val list_buckets : Creds.t ->
 
 val get_object_s : 
   Creds.t option ->
-  s3_bucket:string ->
-  s3_object:string -> 
+  bucket:string ->
+  objekt:string -> 
   [> `NotFound | `Error of string | `Ok of string ] Lwt.t
 
 val get_object :
   Creds.t option ->
-  s3_bucket:string ->
-  s3_object:string ->
+  bucket:string ->
+  objekt:string ->
   path:string ->
   [> `Error of string | `NotFound | `Ok ] Lwt.t
 
@@ -63,22 +63,22 @@ val put_object :
   ?content_type:string ->
   ?amz_acl:amz_acl ->
   Creds.t ->  
-  s3_bucket:string ->
-  s3_object:string -> 
+  bucket:string ->
+  objekt:string -> 
   body:[ `File of string | `String of string ] ->
   [> `Error of string | `Ok ] Lwt.t
 
 val get_object_metadata :
   Creds.t ->
-  s3_bucket:string ->
-  s3_object:string -> 
+  bucket:string ->
+  objekt:string -> 
   [> `NotFound 
   | `Error of string 
   | `Ok of < 
       content_length : int; 
-   content_type : string; 
-   etag : string; 
-   last_modified : string (* TODO : CalendarLib.Calendar.t *)
+      content_type : string; 
+      etag : string; 
+      last_modified : string (* TODO : CalendarLib.Calendar.t *)
     > 
   ] Lwt.t
 
