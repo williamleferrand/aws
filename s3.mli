@@ -60,6 +60,7 @@ val get_object_s :
   [> `NotFound | `Error of string | `Ok of string ] Lwt.t
 
 val get_object :
+  ?byte_range: (int * int) ->
   Creds.t option ->
   bucket:string ->
   objekt:string ->

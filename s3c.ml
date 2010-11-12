@@ -88,6 +88,17 @@ let get_object creds bucket objekt path () =
   in
   return exit_code
 
+let get_object_range creds bucket objekt path start fini () =
+  lwt result = S3.get_object ~byte_range:(start, fini) (Some creds) 
+    ~bucket ~objekt ~path in
+  let exit_code = 
+    match result with
+      | `Ok -> print_endline "ok"; 0
+      | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
+      | `Error msg -> print_endline msg; 1
+  in
+  return exit_code
+
 let put_object creds bucket objekt path () =
   lwt result = S3.put_object creds ~bucket ~objekt ~body:(`File path) in
   let exit_code = 
@@ -437,6 +448,10 @@ let _ =
 
       | [| _; "get-object"; bucket; objekt; path|] -> 
         get_object creds bucket objekt path
+
+      | [| _; "get-object-range"; bucket; objekt; path; start; fini|] -> 
+        get_object_range creds bucket objekt path 
+          (int_of_string start) (int_of_string fini)
 
       | [| _; "put-object"; bucket; objekt ; path |] -> 
         put_object creds bucket objekt path

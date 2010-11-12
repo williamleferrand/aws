@@ -275,8 +275,14 @@ let get_object_s creds_opt ~bucket ~objekt =
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_, _, body) -> error_msg body
 
-let get_object creds_opt ~bucket ~objekt ~path =
+let get_object ?byte_range creds_opt ~bucket ~objekt ~path =
   let headers, request_url = get_object_h creds_opt ~bucket ~objekt in
+  let byte_range_header = 
+    match byte_range with
+      | None -> []
+      | Some (start,fini) -> ["Range", sprintf "bytes=%d-%d" start fini]
+  in
+  let headers = headers @ byte_range_header in
   let flags = [ Unix.O_CREAT; Unix.O_WRONLY; Unix.O_APPEND; Unix.O_TRUNC ] in
   let outchan = Lwt_io.open_file ~flags ~mode:Lwt_io.output path in
   lwt res = 
