@@ -147,10 +147,7 @@ end
 val get_bucket_acl :
   Creds.t ->
   string -> 
-  [> `Error of string 
-  | `NotFound 
-  | `Ok of acl
-  ] Lwt.t
+  [> `Error of string | `NotFound | `Ok of acl ] Lwt.t
 
 val set_bucket_acl :
   Creds.t ->
@@ -164,3 +161,17 @@ val delete_object :
   bucket:string ->
   objekt:string ->
   [> `Error of string | `BucketNotFound | `Ok ] Lwt.t
+
+val get_object_acl :
+  Creds.t ->
+  bucket:string ->
+  objekt:string ->
+  [> `Error of string | `NotFound | `Ok of acl ] Lwt.t  
+
+val set_object_acl :
+  Creds.t ->
+  bucket:string ->
+  objekt:string ->
+  acl ->
+  [> `Error of string | `NotFound | `Ok ] Lwt.t  
+

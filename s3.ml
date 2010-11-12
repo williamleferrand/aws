@@ -139,19 +139,19 @@ let sub_resource_of_string = function
 | _ -> raise (Error "subresource")
 
 let string_of_sub_resource = function
-| `acl                    -> "acl"            
-| `location           -> "location"       
-| `logging           -> "logging"        
-| `notification           -> "notification"   
-| `part_number           -> "partNumber"     
+| `acl              -> "acl"            
+| `location         -> "location"       
+| `logging          -> "logging"        
+| `notification     -> "notification"   
+| `part_number      -> "partNumber"     
 | `policy           -> "policy"         
-| `request_payment -> "requestPayment" 
-| `torrent            -> "torrent"        
-| `upload_id           -> "uploadId"       
-| `uploads           -> "uploads"        
-| `version_id           -> "versionId"      
-| `versioning           -> "versioning"     
-| `versions        -> "versions"       
+| `request_payment  -> "requestPayment" 
+| `torrent          -> "torrent"        
+| `upload_id        -> "uploadId"       
+| `uploads          -> "uploads"        
+| `version_id       -> "versionId"      
+| `versioning       -> "versioning"     
+| `versions         -> "versions"       
 
 class buffer size =
   let b = Buffer.create size in
@@ -297,7 +297,7 @@ let create_bucket creds bucket amz_acl =
   let authorization_header = auth_hdr 
     ~http_method:`PUT ~bucket ~amz_headers ~date creds  
   in
-  let request_url = sprintf "http://s3.amazonaws.com/%s" bucket in
+  let request_url = sprintf "%s%s" service_url bucket in
   let headers = authorization_header :: ("Date", date) :: amz_headers in
   try_lwt
     lwt _ = HC.put ~headers request_url in
@@ -311,7 +311,7 @@ let delete_bucket creds bucket =
   let authorization_header = auth_hdr 
     ~http_method:`DELETE ~bucket ~date creds  
   in
-  let request_url = sprintf "http://s3.amazonaws.com/%s" (Util.encode_url bucket) in
+  let request_url = sprintf "%s%s" service_url (Util.encode_url bucket) in
   let headers = [ authorization_header ; "Date", date ] in
   try_lwt
     lwt _ = HC.delete ~headers request_url in
@@ -676,12 +676,13 @@ let xml_of_access_control_policy acl =
   in
   X.Element ("AccessControlPolicy", [], kids)
 
+let xml_content_type_header = "Content-Type", "application/xml"
+
 let set_bucket_acl creds bucket acl  =
   let date = now_as_string () in
-  let content_type = "application/xml" in 
   let authorization_header = auth_hdr
     ~http_method:`PUT 
-    ~content_type 
+    ~content_type:"application/xml"
     ~date 
     ~bucket 
     ~sub_resources:[`acl, None] 
@@ -690,7 +691,7 @@ let set_bucket_acl creds bucket acl  =
   let request_url = service_url ^ 
     (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl) 
   in  
-  let headers = [ "Date", date ; "Content-Type", content_type; authorization_header ] in
+  let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
   let body = `String (Util.string_of_xml xml) in
   try_lwt
@@ -721,4 +722,51 @@ let delete_object creds ~bucket ~objekt =
   with
     | HC.Http_error (404,_,_) -> return `BucketNotFound
     | HC.Http_error (204,_,_) -> return `Ok
+    | HC.Http_error (_,_,body) -> error_msg body
+
+(* get object acl *)
+let get_object_acl creds ~bucket ~objekt =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr 
+    ~http_method:`GET 
+    ~date 
+    ~bucket 
+    ~request_uri:("/" ^ objekt)
+    ~sub_resources:[`acl, None] 
+    creds
+  in
+  let headers = [ "Date", date ; authorization_header ] in
+  let request_url = sprintf "%s%s/%s?%s" service_url 
+    (Util.encode_url bucket) (Util.encode_url objekt) 
+    (string_of_sub_resource `acl) 
+  in
+  try_lwt
+    lwt response_headers, response_body = HC.get ~headers request_url in
+    return (`Ok (access_control_policy_of_xml (X.parse_string response_body))) 
+  with 
+    | HC.Http_error (404,_,_) -> return `NotFound
+    | HC.Http_error (_,_,body) -> error_msg body
+
+let set_object_acl creds ~bucket ~objekt acl  =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`PUT 
+    ~content_type:"application/xml"
+    ~date 
+    ~bucket 
+    ~request_uri:("/" ^ objekt)
+    ~sub_resources:[`acl, None] 
+    creds
+  in
+  let request_url = sprintf "%s%s/%s?%s" service_url  
+    (Util.encode_url bucket) (Util.encode_url objekt) (string_of_sub_resource `acl) 
+  in  
+  let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
+  let xml = xml_of_access_control_policy acl in
+  let body = `String (Util.string_of_xml xml) in
+  try_lwt
+    lwt _ = HC.put ~headers ~body request_url in
+    return `Ok
+  with 
+    | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
