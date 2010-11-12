@@ -157,3 +157,10 @@ val set_bucket_acl :
   string ->
   acl ->
   [> `Error of string | `NotFound | `Ok ] Lwt.t
+
+
+val delete_object :
+  Creds.t ->
+  bucket:string ->
+  objekt:string ->
+  [> `Error of string | `BucketNotFound | `Ok ] Lwt.t

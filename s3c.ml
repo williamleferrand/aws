@@ -106,6 +106,17 @@ let put_object_s creds bucket objekt contents () =
   in
   return exit_code
 
+let delete_object creds bucket objekt () =
+  lwt result = S3.delete_object creds ~bucket ~objekt in
+  let exit_code = 
+    match result with
+      | `Ok -> 0
+      | `BucketNotFound -> printf "%s not found\n%!" bucket; 0
+      | `Error msg -> print_endline msg; 1
+  in
+  return exit_code
+  
+
 let print_kv_list kv_list =
   List.iter (
     fun (k,v) ->
@@ -296,24 +307,6 @@ let _ =
       | [| _; "create-bucket"; bucket |] -> 
         create_bucket creds bucket 
 
-      | [| _; "get-object-s"; bucket; objekt |] -> 
-        get_object_s creds bucket objekt
-
-      | [| _; "get-object"; bucket; objekt; path|] -> 
-        get_object creds bucket objekt path
-
-      | [| _; "put-object"; bucket; objekt ; path |] -> 
-        put_object creds bucket objekt path
-
-      | [| _; "put-object-s"; bucket; objekt ; contents |] -> 
-        put_object_s creds bucket objekt contents
-
-      | [| _; "get-object-metadata"; bucket ; objekt |] -> 
-        get_object_metadata creds bucket objekt
-
-      | [| _; "list-objects"; bucket |] -> 
-        list_objects creds bucket
-
       | [| _; "get-bucket-acl"; bucket |] -> 
         get_bucket_acl creds bucket
 
@@ -335,6 +328,27 @@ let _ =
 
       | [| _; "list-buckets" |] -> 
         list_buckets creds
+
+      | [| _; "get-object-s"; bucket; objekt |] -> 
+        get_object_s creds bucket objekt
+
+      | [| _; "get-object"; bucket; objekt; path|] -> 
+        get_object creds bucket objekt path
+
+      | [| _; "put-object"; bucket; objekt ; path |] -> 
+        put_object creds bucket objekt path
+
+      | [| _; "put-object-s"; bucket; objekt ; contents |] -> 
+        put_object_s creds bucket objekt contents
+
+      | [| _; "get-object-metadata"; bucket ; objekt |] -> 
+        get_object_metadata creds bucket objekt
+
+      | [| _; "list-objects"; bucket |] -> 
+        list_objects creds bucket
+
+      | [| _; "delete-object"; bucket; objekt |] ->
+        delete_object creds bucket objekt 
 
       | _ -> 
         print_endline "unknown command" ; exit 1

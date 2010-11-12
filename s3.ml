@@ -315,7 +315,7 @@ let delete_bucket creds bucket =
   let headers = [ authorization_header ; "Date", date ] in
   try_lwt
     lwt _ = HC.delete ~headers request_url in
-    (* an `Ok response actually transmitted via a 204 *)
+    (* success signaled via a 204 *)
     fail (Error "delete_bucket")
   with 
     | HC.Http_error (204, _, _) ->
@@ -700,4 +700,25 @@ let set_bucket_acl creds bucket acl  =
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
 
-  
+(* delete object *)
+let delete_object creds ~bucket ~objekt =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`DELETE
+    ~date
+    ~bucket
+    ~request_uri:("/" ^ objekt)
+    creds
+  in
+  let request_url = sprintf "%s%s/%s" service_url (Util.encode_url bucket) 
+    (Util.encode_url objekt) 
+  in
+  let headers = [ "Date", date ; authorization_header ] in    
+  try_lwt
+    lwt _ = HC.delete ~headers request_url in
+    (* success actually signaled via a 204 *)
+    fail (Error "delete_object")
+  with
+    | HC.Http_error (404,_,_) -> return `BucketNotFound
+    | HC.Http_error (204,_,_) -> return `Ok
+    | HC.Http_error (_,_,body) -> error_msg body
