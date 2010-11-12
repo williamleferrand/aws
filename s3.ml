@@ -58,10 +58,23 @@ let string_of_http_method = function
   | `HEAD -> "HEAD"
   | `DELETE -> "DELETE"
 
-type amz_acl = [`Private]
+type amz_acl = [ 
+| `Private (* not using [`private] because [private] is an ocaml keyword *)
+| `public_read 
+| `public_read_write 
+| `auauthenticated_read 
+| `buckbucket_owner_read 
+| `bucket_owner_full_control 
+]
+
 
 let string_of_amz_acl = function
   | `Private -> "private"
+  | `public_read -> "public-read"
+  | `public_read_write -> "public-read-write"
+  | `auauthenticated_read -> "authenticated-read"
+  | `buckbucket_owner_read -> "bucket-owner-read"
+  | `bucket_owner_full_control -> "bucket-owner-full-control"
 
 let sign key string_to_sign =
   let hmac_sha1 = K.MAC.hmac_sha1 key in
@@ -621,7 +634,7 @@ let get_bucket_acl creds bucket =
     | HC.Http_error (_,_,body) -> error_msg body
 
   
-(* put bucket acl *)
+(* set bucket acl *)
 let xml_of_permission permission = 
   X.Element ("Permission",[],[X.PCData (string_of_permission permission)])
 

@@ -34,7 +34,14 @@
 
 exception Error of string
 
-type amz_acl = [ `Private ]
+type amz_acl = [ 
+| `Private 
+| `public_read 
+| `public_read_write 
+| `auauthenticated_read 
+| `buckbucket_owner_read 
+| `bucket_owner_full_control 
+]
 
 val create_bucket : Creds.t ->  string -> amz_acl -> 
   [> `Error of string | `Ok ] Lwt.t
