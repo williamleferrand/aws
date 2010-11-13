@@ -36,6 +36,7 @@ module K = Cryptokit
 module HC = Cohttp.Http_client
 module X = Xml
 
+open Http_method
 open Lwt
 
 let sprintf = Printf.sprintf
@@ -49,14 +50,6 @@ let now_as_string () =
 let parse_date_string str =
   P.from_fstring "%Y-%M-%dT%H:%M:%S.%z" str
 *)
-
-type http_method = [`GET | `POST | `HEAD | `DELETE ]
-
-let string_of_http_method = function
-  | `GET -> "GET"
-  | `PUT -> "PUT"
-  | `HEAD -> "HEAD"
-  | `DELETE -> "DELETE"
 
 type amz_acl = [ 
 | `Private (* not using [`private] because [private] is an ocaml keyword *)

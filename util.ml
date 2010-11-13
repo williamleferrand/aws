@@ -65,4 +65,15 @@ let string_of_xml = Xml.to_string
 let sort_assoc_list kv_list = 
   List.sort (fun (k1,_) (k2,_) -> String.compare k1 k2) kv_list
   
+let getenv_else_exit k = 
+  try 
+    Unix.getenv k
+  with Not_found ->
+    failwith (Printf.sprintf "environment variable %S not set\n%!" k)
+
+open Creds
+let creds_of_env () = {
+  aws_access_key_id = getenv_else_exit "AWS_ACCESS_KEY_ID";
+  aws_secret_access_key = getenv_else_exit "AWS_SECRET_ACCESS_KEY"
+}
   

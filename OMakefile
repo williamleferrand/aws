@@ -13,13 +13,14 @@ BYTE_ENABLED = true
 OCAMLFLAGS  += -dtypes 
 OCAMLFINDFLAGS += -syntax camlp4o
 
-FILES[] = s3 eC2 util creds
+FILES[] = s3 eC2 http_method util creds
 
 LIB = aws
 OCAML_LIBS[] = $(LIB)
 
 .DEFAULT: $(OCamlLibrary $(LIB), $(FILES)) \
-  $(OCamlProgram s3c, s3c)
+  $(OCamlProgram s3c, s3c) \
+  $(OCamlProgram ec2c, ec2c) 
 
 .PHONY:  clean
 

@@ -399,18 +399,12 @@ let revoke_object_permission creds ~bucket ~objekt
   return exit_code
 
 let _ = 
-  let getenv_else_exit k = 
+  let creds = 
     try 
-      Unix.getenv k
-    with Not_found ->
-      Printf.printf "environment variable %S not set\n%!" k;
+      Util.creds_of_env () 
+    with Failure msg -> 
+      print_endline msg;
       exit 1
-  in
-
-  let creds = {
-    aws_access_key_id = getenv_else_exit "AWS_ACCESS_KEY_ID";
-    aws_secret_access_key = getenv_else_exit "AWS_SECRET_ACCESS_KEY"
-  }
   in
 
   let command = 
