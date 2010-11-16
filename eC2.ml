@@ -68,16 +68,16 @@ module X = Xml
 exception Error of string
 
 let item_of_xml = function
-  | X.Element("item",_,[
-    X.Element("regionName",_,[X.PCData name]);
-    X.Element("regionEndpoint",_,[X.PCData endpoint])
+  | X.E("item",_,[
+    X.E("regionName",_,[X.P name]);
+    X.E("regionEndpoint",_,[X.P endpoint])
   ]) -> name, endpoint
   | _ -> raise (Error "RegionInfo.item")
 
 let describe_regions_response_of_xml = function
-  | X.Element("DescribeRegionsResponse", _, kids) -> (
+  | X.E("DescribeRegionsResponse", _, kids) -> (
     match kids with
-      | [_ ; X.Element ("regionInfo",_,items_x)] -> (
+      | [_ ; X.E ("regionInfo",_,items_x)] -> (
         List.map item_of_xml items_x
       )
       | _ -> raise (Error "DescribeRegionsResponse:[]")
@@ -85,7 +85,8 @@ let describe_regions_response_of_xml = function
   | _ -> raise (Error "DescribeRegionsResponse")
 
 let describe_regions creds =
-  let request = signed_request creds ~expires_minutes:5 ["Action", "DescribeRegions" ] in
+  let request = signed_request creds ~expires_minutes:5 
+    ["Action", "DescribeRegions" ] in
   lwt header, body = HC.get request in
   let xml = X.parse_string body in  
   return (describe_regions_response_of_xml xml)

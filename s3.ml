@@ -230,7 +230,7 @@ let auth_hdr
 let error_msg body = 
   (* <Error><Code>SomeMessage</Code>...</Error> *)
   match X.parse_string body with
-    | X.Element ("Error",_, (X.Element ("Code",_, [X.PCData msg])) :: _ ) -> 
+    | X.E ("Error",_, (X.E ("Code",_, [X.P msg])) :: _ ) -> 
       return (`Error msg)
     | _ -> 
         (* complain if can't interpret the xml, and then just use the
@@ -324,10 +324,10 @@ let delete_bucket creds bucket =
 
 (* list buckets *)
 let rec bucket = function
-  | X.Element (
+  | X.E (
     "Bucket",_, [
-      X.Element ("Name",_,        [X.PCData name           ]) ;  
-      X.Element ("CreationDate",_,[X.PCData creation_date_s]) 
+      X.E ("Name",_,        [X.P name           ]) ;  
+      X.E ("CreationDate",_,[X.P creation_date_s]) 
     ] )->
     (object
       method name = name
@@ -336,7 +336,7 @@ let rec bucket = function
   | _ -> raise (Error "ListAllMyBucketsResult:2")
 
 and list_all_my_buckets_result_of_xml = function 
-  | X.Element ("ListAllMyBucketsResult",_, [_ ; X.Element ("Buckets",_,buckets) ] ) ->
+  | X.E ("ListAllMyBucketsResult",_, [_ ; X.E ("Buckets",_,buckets) ] ) ->
     List.map bucket buckets
   | _ -> raise (Error "ListAllMyBucketsResult:1")
 
@@ -446,18 +446,18 @@ let get_object_metadata creds ~bucket ~objekt =
   
 (* list objects *)
 let option_pcdata err = function
-  | [X.PCData x] -> Some x
+  | [X.P x] -> Some x
   | [] -> None
   | _ -> raise (Error err)
 
 let rec list_bucket_result_of_xml = function
-  | X.Element ("ListBucketResult",_,kids) -> (
+  | X.E ("ListBucketResult",_,kids) -> (
     match kids with 
-      | X.Element ("Name",_,[X.PCData name]) ::
-          X.Element ("Prefix",_,prefix_opt) ::
-          X.Element ("Marker",_,marker_opt) ::
-          X.Element ("MaxKeys",_,[X.PCData max_keys]) ::
-          X.Element ("IsTruncated",_,[X.PCData is_truncated]) ::
+      | X.E ("Name",_,[X.P name]) ::
+          X.E ("Prefix",_,prefix_opt) ::
+          X.E ("Marker",_,marker_opt) ::
+          X.E ("MaxKeys",_,[X.P max_keys]) ::
+          X.E ("IsTruncated",_,[X.P is_truncated]) ::
           contents ->
 
         let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
@@ -484,16 +484,16 @@ and contents_of_xml contents =
   List.map objects_of_xml contents
 
 and objects_of_xml = function
-  | X.Element ("Contents",_, [
-    X.Element ("Key",_,[X.PCData name]);
-    X.Element ("LastModified",_,[X.PCData last_modified]);
-    X.Element ("ETag",_,[X.PCData etag]);
-    X.Element ("Size",_,[X.PCData size]);
-    X.Element ("Owner",_,[
-      X.Element ("ID",_,[X.PCData owner_id]);
-      X.Element ("DisplayName",_,[X.PCData owner_display_name])
+  | X.E ("Contents",_, [
+    X.E ("Key",_,[X.P name]);
+    X.E ("LastModified",_,[X.P last_modified]);
+    X.E ("ETag",_,[X.P etag]);
+    X.E ("Size",_,[X.P size]);
+    X.E ("Owner",_,[
+      X.E ("ID",_,[X.P owner_id]);
+      X.E ("DisplayName",_,[X.P owner_display_name])
     ]);
-    X.Element ("StorageClass",_,[X.PCData storage_class])
+    X.E ("StorageClass",_,[X.P storage_class])
   ]) ->
     let size = int_of_string size in
     (object 
@@ -577,24 +577,24 @@ let tag_of_identity = function
 | `group _ -> "Group"
 
 let identity_of_xml = function 
-  | [X.Element ("ID",_,[X.PCData id]);
-     X.Element ("DisplayName",_,[X.PCData display_name])
+  | [X.E ("ID",_,[X.P id]);
+     X.E ("DisplayName",_,[X.P display_name])
     ] ->
     `canonical_user (new canonical_user id display_name)
 
-  | [X.Element ("EmailAddress",_,[X.PCData email_address])] ->
+  | [X.E ("EmailAddress",_,[X.P email_address])] ->
     `amazon_customer_by_email email_address
 
-  | [X.Element ("URI",_,[X.PCData group])] ->
+  | [X.E ("URI",_,[X.P group])] ->
     `group group
 
   | _ ->
     raise (Error "grantee")
 
 let grant_of_xml = function
-  | X.Element ("Grant",_, [
-    X.Element ("Grantee", grantee_atts, grantee_x);
-    X.Element ("Permission",_,[X.PCData permission_s])  ]) ->
+  | X.E ("Grant",_, [
+    X.E ("Grantee", grantee_atts, grantee_x);
+    X.E ("Permission",_,[X.P permission_s])  ]) ->
     let grantee = identity_of_xml grantee_x in
     let permission = permission_of_string permission_s in
     (grantee, permission)
@@ -603,9 +603,9 @@ let grant_of_xml = function
     raise (Error "Grant")
 
 let access_control_policy_of_xml = function
-  | X.Element ("AccessControlPolicy",_,[
-    X.Element ("Owner", _, owner_x);
-    X.Element ("AccessControlList", _, grants_x) ]) ->
+  | X.E ("AccessControlPolicy",_,[
+    X.E ("Owner", _, owner_x);
+    X.E ("AccessControlList", _, grants_x) ]) ->
     let owner = identity_of_xml owner_x in
     let grants = List.map grant_of_xml grants_x in
     new acl owner grants
@@ -635,7 +635,7 @@ let get_bucket_acl creds bucket =
   
 (* set bucket acl *)
 let xml_of_permission permission = 
-  X.Element ("Permission",[],[X.PCData (string_of_permission permission)])
+  X.E ("Permission",[],[X.P (string_of_permission permission)])
 
 let ns_schema_instance = "http://www.w3.org/2001/XMLSchema-instance"
 let ns_xmlns = "http://www.w3.org/2000/xmlns/"
@@ -647,36 +647,36 @@ let atts s = [
 
 let xml_of_identity = function
   | `amazon_customer_by_email email ->
-    [X.Element("EmailAddress",[],[X.PCData email])]
+    [X.E("EmailAddress",[],[X.P email])]
 
   | `canonical_user cn ->
-    [X.Element ("ID",[],[X.PCData cn#id]);
-     X.Element ("DisplayName",[],[X.PCData cn#display_name])]
+    [X.E ("ID",[],[X.P cn#id]);
+     X.E ("DisplayName",[],[X.P cn#display_name])]
 
   | `group uri ->
-    [X.Element("URI",[],[X.PCData uri])]
+    [X.E("URI",[],[X.P uri])]
 
 let xml_of_grantee identity = 
   let identity_x = xml_of_identity identity in
-  X.Element("Grantee", atts (tag_of_identity identity), identity_x)
+  X.E("Grantee", atts (tag_of_identity identity), identity_x)
 
 let xml_of_owner identity =
   let identity_x = xml_of_identity identity in
-  X.Element ("Owner",[], identity_x)
+  X.E ("Owner",[], identity_x)
 
 let xml_of_grant (grantee, permission) = 
   let kids = [xml_of_grantee grantee; xml_of_permission permission] in
-  X.Element("Grant", [], kids)
+  X.E("Grant", [], kids)
 
 let xml_of_access_control_list grants =
-  X.Element("AccessControlList", [], List.map xml_of_grant grants)
+  X.E("AccessControlList", [], List.map xml_of_grant grants)
 
 let xml_of_access_control_policy acl =
   let kids = [ 
     xml_of_owner acl#owner ; 
     xml_of_access_control_list acl#grants ] 
   in
-  X.Element ("AccessControlPolicy", [], kids)
+  X.E ("AccessControlPolicy", [], kids)
 
 let xml_content_type_header = "Content-Type", "application/xml"
 

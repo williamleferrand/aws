@@ -1,6 +1,6 @@
 type node = 
-  | Element of string * attr list * node list 
-  | PCData of string
+  | E of string * attr list * node list 
+  | P of string
 and attr = (string * string) * string
 
 val xml_of_string : string -> node
