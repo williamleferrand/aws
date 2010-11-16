@@ -637,9 +637,12 @@ let get_bucket_acl creds bucket =
 let xml_of_permission permission = 
   X.Element ("Permission",[],[X.PCData (string_of_permission permission)])
 
+let ns_schema_instance = "http://www.w3.org/2001/XMLSchema-instance"
+let ns_xmlns = "http://www.w3.org/2000/xmlns/"
+
 let atts s = [ 
-  "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance";
-  "xsi:type", s
+  (ns_xmlns          , "xsi" ), ns_schema_instance;
+  (ns_schema_instance, "type"), s
 ]
 
 let xml_of_identity = function
@@ -692,7 +695,8 @@ let set_bucket_acl creds bucket acl  =
   in  
   let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
-  let body = `String (Util.string_of_xml xml) in
+  (* let body = `String (X.string_of_xml xml) in *)
+  let body = `String (let b = X.string_of_xml xml in print_endline b; b) in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok
@@ -762,7 +766,7 @@ let set_object_acl creds ~bucket ~objekt acl  =
   in  
   let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
-  let body = `String (Util.string_of_xml xml) in
+  let body = `String (X.string_of_xml xml) in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok

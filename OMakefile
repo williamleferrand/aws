@@ -5,7 +5,8 @@ OCAMLPACKS[] = \
   calendar \
   cohttp \
   lwt.syntax \
-  xml-light
+  xmlm 
+
 
 NATIVE_ENABLED = true
 BYTE_ENABLED = true
@@ -13,7 +14,7 @@ BYTE_ENABLED = true
 OCAMLFLAGS  += -dtypes 
 OCAMLFINDFLAGS += -syntax camlp4o
 
-FILES[] = s3 eC2 http_method util creds
+FILES[] = s3 eC2 http_method util creds xml
 
 LIB = aws
 OCAML_LIBS[] = $(LIB)

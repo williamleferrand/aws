@@ -9,7 +9,7 @@ Aws depends on the following packages:
 -  cryptokit
 -  calendar
 -  lwt
--  xml-light
+-  [xmlm](http://github.com/samoht/xmlm)
 -  [cohttp](http://github.com/avsm/ocaml-cohttp)
 
 All of the packages except the last are available via GODI.  
