@@ -46,20 +46,6 @@ let service_url = "http://s3.amazonaws.com/"
 let now_as_string () =
   P.sprint "%a, %d %b %Y %H:%M:%S GMT" (C.now ())
 
-(* parse string of the format ["2009-12-04T22:33:47.279Z"], return
-   seconds since Unix epoch. *)
-let parse_date_string str =
-  let year, month, day, hour, minute, second, millisecond =
-    Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
-      fun year month day hour minute second millisecond ->
-        year, month, day, hour, minute, second, millisecond
-    ) 
-  in
-  let z = C.make year month day hour minute second in
-  let t = C.to_unixfloat z  in
-  let millis = (float_of_int millisecond) /. 1000. in
-  t +. millis
-
 type amz_acl = [ 
 | `Private (* not using [`private] because [private] is an ocaml keyword *)
 | `public_read 
@@ -440,7 +426,7 @@ let get_object_metadata creds ~bucket ~objekt =
     let etag = find "ETag" in
     let last_modified_s = find "Last-Modified" in
     let content_length = int_of_string (find "Content-Length") in
-    let last_modified = parse_date_string last_modified_s in
+    let last_modified = Util.parse_amz_date_string last_modified_s in
     let meta = (object 
       method content_type = content_type
       method etag = etag
@@ -505,7 +491,7 @@ and objects_of_xml = function
     ]);
     X.E ("StorageClass",_,[X.P storage_class])
   ]) ->
-    let last_modified = parse_date_string last_modified_s in
+    let last_modified = Util.parse_amz_date_string last_modified_s in
     let size = int_of_string size in
     (object 
       method name = name

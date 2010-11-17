@@ -9,6 +9,8 @@ let sprint = Printf.sprintf
 let compare_fst (k1,v1) (k2,v2) = String.compare k1 k2
 let sort_by_keys params = List.sort compare_fst params
 
+let default_expires_minutes = 5
+
 let expires_format = "%FT%TZ"
 
 let expires_minutes_from_now minutes =
@@ -67,6 +69,7 @@ module X = Xml
 
 exception Error of string
 
+(* describe regions *)
 let item_of_xml = function
   | X.E("item",_,[
     X.E("regionName",_,[X.P name]);
@@ -84,10 +87,77 @@ let describe_regions_response_of_xml = function
   )
   | _ -> raise (Error "DescribeRegionsResponse")
 
-let describe_regions creds =
-  let request = signed_request creds ~expires_minutes:5 
+let describe_regions ?(expires_minutes=default_expires_minutes) creds =
+  let request = signed_request creds ~expires_minutes
     ["Action", "DescribeRegions" ] in
   lwt header, body = HC.get request in
   let xml = X.parse_string body in  
   return (describe_regions_response_of_xml xml)
+
+(* describe spot price history *)
+(*
+<DescribeSpotPriceHistoryResponse xmlns="http://ec2.amazonaws.com/doc/2010-08-31/">
+  <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId> 
+  <spotPriceHistorySet>
+    <item>
+      <instanceType>m1.small</instanceType>
+      <productDescription>Linux/UNIX</productDescription>
+      <spotPrice>0.287</spotPrice>
+      <timestamp>2009-12-04T20:56:05.000Z</timestamp>
+    </item>
+    <item>
+      <instanceType>m1.small</instanceType>
+      <productDescription>Windows</productDescription>
+      <spotPrice>0.033</spotPrice>
+      <timestamp>2009-12-04T22:33:47.000Z</timestamp>
+    </item>
+  </ spotPriceHistorySet>
+</DescribeSpotPriceHistoryResponse>
+*)
+
+let item_of_xml = function 
+  | X.E ("item",_,[
+    X.E ("instanceType",_,[X.P instance_type]);
+    X.E ("productDescription",_,[X.P product_description]);
+    X.E ("spotPrice",_,[X.P spot_price_s]);
+    X.E ("timestamp",_,[X.P timestamp_s])
+  ]) ->
+
+    let spot_price = float_of_string spot_price_s in
+    let timestamp = Util.parse_amz_date_string timestamp_s in
+    (object 
+      method instance_type = instance_type
+      method product_description = product_description
+      method spot_price = spot_price 
+      method timestamp = timestamp
+     end)
+
+  | _ -> raise (Error (String.concat "." [
+    "DescribeSpotPriceHistoryResponse";
+    "spotPriceHistorySet";
+    "item"
+  ]))
+      
+
+let describe_spot_price_history_of_xml = function
+  | X.E ("DescribeSpotPriceHistoryResponse",_,kids) -> (
+    match kids with
+      | [_ ; X.E("spotPriceHistorySet",_,kids) ] ->
+        List.map item_of_xml kids
+
+      | _ ->
+        raise (
+          Error ("DescribeSpotPriceHistoryResponse." ^ 
+            "spotPriceHistorySet")
+        )
+  )
+  | _ ->
+    raise (Error "DescribeSpotPriceHistoryResponse")
+
+let describe_spot_price_history ?(expires_minutes=default_expires_minutes) creds =
+  let request = signed_request creds ~expires_minutes 
+    ["Action", "DescribeSpotPriceHistory" ] in
+  lwt header, body = HC.get request in
+  let xml = X.parse_string body in
+  return (describe_spot_price_history_of_xml xml)
 

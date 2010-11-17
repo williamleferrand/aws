@@ -75,3 +75,24 @@ let creds_of_env () = {
   aws_secret_access_key = getenv_else_exit "AWS_SECRET_ACCESS_KEY"
 }
   
+
+module C = CalendarLib.Calendar
+module P = CalendarLib.Printer.CalendarPrinter
+
+(* parse string of the format ["2009-12-04T22:33:47.279Z"], return
+   seconds since Unix epoch. *)
+let parse_amz_date_string str =
+  let year, month, day, hour, minute, second, millisecond =
+    Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
+      fun year month day hour minute second millisecond ->
+        year, month, day, hour, minute, second, millisecond
+    ) 
+  in
+  let z = C.make year month day hour minute second in
+  let t = C.to_unixfloat z  in
+  let millis = (float_of_int millisecond) /. 1000. in
+  t +. millis
+
+let date_string_of_unixfloat f =
+  P.sprint "%F %T%z" (C.from_unixfloat f)
+

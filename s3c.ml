@@ -39,9 +39,6 @@ open Printf
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 
-let date_string_of_unixfloat f =
-  P.sprint "%F %T%z" (C.from_unixfloat f)
-
 let create_bucket creds bucket () =
   lwt result = S3.create_bucket creds bucket `Private in
   let exit_code = 
@@ -149,7 +146,7 @@ let get_object_metadata creds bucket objekt () =
           "Content-Type", m#content_type;
           "Content-Length", string_of_int m#content_length;
           "ETag", m#etag;
-          "Last-Modified", date_string_of_unixfloat m#last_modified
+          "Last-Modified", Util.date_string_of_unixfloat m#last_modified
         ];
         0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 1
@@ -177,7 +174,7 @@ let list_objects creds bucket () =
           fun o ->
             printf "%s\t%s\t%s\t%d\t%s\t%s\t%s\n" 
               o#name 
-              (date_string_of_unixfloat o#last_modified)
+              (Util.date_string_of_unixfloat o#last_modified)
               o#etag 
               o#size 
               o#storage_class 
