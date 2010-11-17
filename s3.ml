@@ -46,10 +46,19 @@ let service_url = "http://s3.amazonaws.com/"
 let now_as_string () =
   P.sprint "%a, %d %b %Y %H:%M:%S GMT" (C.now ())
 
-(*
+(* parse string of the format ["2009-12-04T22:33:47.279Z"], return
+   seconds since Unix epoch. *)
 let parse_date_string str =
-  P.from_fstring "%Y-%M-%dT%H:%M:%S.%z" str
-*)
+  let year, month, day, hour, minute, second, millisecond =
+    Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
+      fun year month day hour minute second millisecond ->
+        year, month, day, hour, minute, second, millisecond
+    ) 
+  in
+  let z = C.make year month day hour minute second in
+  let t = C.to_unixfloat z  in
+  let millis = (float_of_int millisecond) /. 1000. in
+  t +. millis
 
 type amz_acl = [ 
 | `Private (* not using [`private] because [private] is an ocaml keyword *)
@@ -429,8 +438,9 @@ let get_object_metadata creds ~bucket ~objekt =
     let find k = assoc_header response_headers ("GetObjectMetadata:" ^ k) k in
     let content_type = find "Content-Type" in
     let etag = find "ETag" in
-    let last_modified = find "Last-Modified" in
+    let last_modified_s = find "Last-Modified" in
     let content_length = int_of_string (find "Content-Length") in
+    let last_modified = parse_date_string last_modified_s in
     let meta = (object 
       method content_type = content_type
       method etag = etag
@@ -486,7 +496,7 @@ and contents_of_xml contents =
 and objects_of_xml = function
   | X.E ("Contents",_, [
     X.E ("Key",_,[X.P name]);
-    X.E ("LastModified",_,[X.P last_modified]);
+    X.E ("LastModified",_,[X.P last_modified_s]);
     X.E ("ETag",_,[X.P etag]);
     X.E ("Size",_,[X.P size]);
     X.E ("Owner",_,[
@@ -495,10 +505,11 @@ and objects_of_xml = function
     ]);
     X.E ("StorageClass",_,[X.P storage_class])
   ]) ->
+    let last_modified = parse_date_string last_modified_s in
     let size = int_of_string size in
     (object 
       method name = name
-      method last_modified = last_modified (* TODO Calendar.t *)
+      method last_modified = last_modified
       method etag = etag
       method size = size
       method storage_class = storage_class 
@@ -695,8 +706,7 @@ let set_bucket_acl creds bucket acl  =
   in  
   let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
-  (* let body = `String (X.string_of_xml xml) in *)
-  let body = `String (let b = X.string_of_xml xml in print_endline b; b) in
+  let body = `String (X.string_of_xml xml) in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok

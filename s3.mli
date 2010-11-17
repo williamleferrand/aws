@@ -86,7 +86,7 @@ val get_object_metadata :
       content_length : int; 
       content_type : string; 
       etag : string; 
-      last_modified : string (* TODO : CalendarLib.Calendar.t *)
+      last_modified : float
     > 
   ] Lwt.t
 
@@ -104,7 +104,7 @@ val list_objects :
       is_truncated : bool; 
       objects : < 
         etag : string; 
-        last_modified : string;
+        last_modified : float;
         name : string; 
         owner_display_name : string;
         owner_id : string; 
