@@ -96,3 +96,11 @@ let parse_amz_date_string str =
 let date_string_of_unixfloat f =
   P.sprint "%F %T%z" (C.from_unixfloat f)
 
+let rec list_map_i f list =
+  loop f 0 [] list
+
+and loop f j accu = function
+  | [] -> List.rev accu 
+  | h :: t ->
+    let m = f j h in
+    loop f (j+1) (m::accu) t

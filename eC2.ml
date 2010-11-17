@@ -9,22 +9,23 @@ let sprint = Printf.sprintf
 let compare_fst (k1,v1) (k2,v2) = String.compare k1 k2
 let sort_by_keys params = List.sort compare_fst params
 
-let default_expires_minutes = 5
-
-let expires_format = "%FT%TZ"
+let datetime_format = "%FT%TZ"
 
 let expires_minutes_from_now minutes =
   let now = C.now () in
   let minutes_from_now = C.Period.make 0 0 0 0 minutes 0 in
   let now_plus_minutes_from_now = C.add now minutes_from_now in
-  P.sprint expires_format now_plus_minutes_from_now
+  P.sprint datetime_format now_plus_minutes_from_now
+
+let now_as_string () =
+  P.sprint datetime_format (C.now ())
 
 (* compute the AWS SHA1 signature that to annotate a Query-style request *)
 let signed_request
     ?(http_method=`GET) 
     ?(http_host="ec2.amazonaws.com") 
     ?(http_uri="/")
-    ?(expires_minutes)
+    ?expires_minutes
     creds 
     params  = 
 
@@ -39,7 +40,7 @@ let signed_request
   let params = 
     match expires_minutes with
       | Some i -> ("Expires", expires_minutes_from_now i) :: params 
-      | None -> params
+      | None -> ("Timestamp", now_as_string ()) :: params
   in
 
   let signature = 
@@ -75,7 +76,7 @@ let item_of_xml = function
     X.E("regionName",_,[X.P name]);
     X.E("regionEndpoint",_,[X.P endpoint])
   ]) -> name, endpoint
-  | _ -> raise (Error "RegionInfo.item")
+  | _ -> raise (Error "DescribeRegionsResponse.RegionInfo.item")
 
 let describe_regions_response_of_xml = function
   | X.E("DescribeRegionsResponse", _, kids) -> (
@@ -83,38 +84,18 @@ let describe_regions_response_of_xml = function
       | [_ ; X.E ("regionInfo",_,items_x)] -> (
         List.map item_of_xml items_x
       )
-      | _ -> raise (Error "DescribeRegionsResponse:[]")
+      | _ -> raise (Error "DescribeRegionsResponse.regionInfo")
   )
   | _ -> raise (Error "DescribeRegionsResponse")
 
-let describe_regions ?(expires_minutes=default_expires_minutes) creds =
-  let request = signed_request creds ~expires_minutes
+let describe_regions ?expires_minutes creds =
+  let request = signed_request creds ?expires_minutes
     ["Action", "DescribeRegions" ] in
   lwt header, body = HC.get request in
   let xml = X.parse_string body in  
   return (describe_regions_response_of_xml xml)
 
 (* describe spot price history *)
-(*
-<DescribeSpotPriceHistoryResponse xmlns="http://ec2.amazonaws.com/doc/2010-08-31/">
-  <requestId>59dbff89-35bd-4eac-99ed-be587EXAMPLE</requestId> 
-  <spotPriceHistorySet>
-    <item>
-      <instanceType>m1.small</instanceType>
-      <productDescription>Linux/UNIX</productDescription>
-      <spotPrice>0.287</spotPrice>
-      <timestamp>2009-12-04T20:56:05.000Z</timestamp>
-    </item>
-    <item>
-      <instanceType>m1.small</instanceType>
-      <productDescription>Windows</productDescription>
-      <spotPrice>0.033</spotPrice>
-      <timestamp>2009-12-04T22:33:47.000Z</timestamp>
-    </item>
-  </ spotPriceHistorySet>
-</DescribeSpotPriceHistoryResponse>
-*)
-
 let item_of_xml = function 
   | X.E ("item",_,[
     X.E ("instanceType",_,[X.P instance_type]);
@@ -154,10 +135,96 @@ let describe_spot_price_history_of_xml = function
   | _ ->
     raise (Error "DescribeSpotPriceHistoryResponse")
 
-let describe_spot_price_history ?(expires_minutes=default_expires_minutes) creds =
-  let request = signed_request creds ~expires_minutes 
-    ["Action", "DescribeSpotPriceHistory" ] in
+let describe_spot_price_history ?expires_minutes creds =
+  let request = signed_request creds ?expires_minutes
+    ["Action", "DescribeSpotPriceHistory" ] 
+  in
   lwt header, body = HC.get request in
   let xml = X.parse_string body in
   return (describe_spot_price_history_of_xml xml)
 
+(* terminate instances *)
+(*
+<TerminateInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2010-08-31/">
+  <instancesSet>
+    <item>
+      <instanceId>i-3ea74257</instanceId>
+      <currentState>
+        <code>32</code>
+        <name>shutting-down</name>
+      </currentState>
+      <previousState>
+        <code>16</code>
+        <name>running</name>
+      </previousState>
+    </item>
+  </instancesSet>
+</TerminateInstancesResponse>
+*)
+
+class state code name =
+object
+  method code : int = code
+  method name : string = name
+end
+
+let item_of_xml = function
+  | X.E ("item",_, [
+    X.E ("instanceId",_,[X.P instance_id]);
+    X.E ("currentState",_,[
+      X.E ("code",_,[X.P c_code_s]);
+      X.E ("name",_,[X.P c_name])
+    ]);
+    X.E ("previousState",_,[
+      X.E ("code",_,[X.P p_code_s]);
+      X.E ("name",_,[X.P p_name])
+    ])
+  ]) -> 
+    let current_state = new state (int_of_string c_code_s) c_name in
+    let previous_state = new state (int_of_string p_code_s) p_name in
+    (object 
+      method instance_id = instance_id
+      method current_state = current_state
+      method previous_state = previous_state
+     end)
+    
+  | _ ->
+    raise (Error "TerminateInstancesResponse.instanceSet.item")
+      
+
+let terminate_instances_of_xml = function
+  | X.E ("TerminateInstancesResponse",_, [X.E ("instanceSet",_, items)]) ->
+    List.map item_of_xml items
+  | _ -> raise (Error "TerminateInstancesResponse")
+
+(*
+<Response><Errors><Error><Code>InvalidInstanceID.Malformed</Code><Message>Invalid id: "i2"</Message></Error></Errors><RequestID>3804d5da-376b-4192-9de4-7e9a05f3d766</RequestID></Respon
+*)
+
+
+let error_msg body =
+  match X.xml_of_string body with
+    | X.E ("Response",_,(X.E ("Errors",_,[X.E ("Error",_,[
+      X.E ("Code",_,[X.P code]);
+      X.E ("Message",_,[X.P message])
+    ])]))::_) ->
+      `Error message
+  
+  | _ -> raise (Error "Response.Errors.Error")
+
+let terminate_instances ?expires_minutes creds instance_ids =
+  let args = Util.list_map_i (
+    fun i instance_id ->
+      sprint "InstanceId.%d" (i+1), instance_id
+  ) instance_ids
+  in
+  let request = signed_request creds ?expires_minutes
+    (("Action", "TerminateInstances") :: args) 
+  in
+  try_lwt
+    lwt header, body = HC.get request in
+    let xml = X.parse_string body in
+    return (`Ok  (terminate_instances_of_xml xml))
+  with 
+    | HC.Http_error (_,_,body) ->
+      return (error_msg body)
