@@ -104,3 +104,4 @@ and loop f j accu = function
   | h :: t ->
     let m = f j h in
     loop f (j+1) (m::accu) t
+

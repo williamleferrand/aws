@@ -19,18 +19,66 @@ let describe_spot_price_history creds () =
   ) history;
   return 0
 
-let terminate_instances creds instance_ids () =
-  lwt resp = EC2.terminate_instances creds instance_ids in
+let terminate_instances ~region creds instance_ids () =
+  lwt resp = EC2.terminate_instances ~region creds instance_ids in
   match resp with
     | `Ok killed -> 
       List.iter (
-        fun terminated_instance ->
-          ()
+        fun i ->
+          printf "%s\t%s\t%d\t%s\t%d\n" 
+            i#instance_id
+            i#previous_state#name
+            i#previous_state#code
+            i#current_state#name
+            i#current_state#code
       ) killed;
       return 0
-    | `Error msg ->
-      print_endline msg;
-      return 1
+    | `Error msg -> print_endline msg; return 1
+
+let string_of_opt = function
+  | None -> "-"
+  | Some s -> s
+
+let print_reservation r =
+  List.iter (
+    fun instance ->
+      printf "%s\t%s\t%s\t%s\t%s\n" 
+        r#id 
+        instance#id
+        instance#image_id
+        (string_of_opt instance#private_dns_name_opt)
+        (string_of_opt instance#dns_name_opt)
+  ) r#instances
+
+let describe_instances ~region creds instance_ids () =
+  lwt resp = EC2.describe_instances ~region creds instance_ids in
+  match resp with
+    | `Ok reservations ->
+      List.iter print_reservation reservations; return 0
+    | `Error msg -> print_endline msg; return 1
+
+let run_instances 
+    creds 
+    ~key_name 
+    ~region
+    ~availability_zone 
+    ~image_id 
+    ~min_count 
+    ~max_count () =
+
+  lwt resp = EC2.run_instances 
+    creds 
+    ~key_name 
+    ~region
+    ~availability_zone 
+    ~image_id
+    ~min_count 
+    ~max_count 
+  in
+  match resp with
+    | `Ok reservation ->
+      print_reservation reservation; return 0
+    | `Error msg -> print_endline msg; return 1
 
 let _ =
   let creds = 
@@ -49,16 +97,26 @@ let _ =
       | [| _; "describe-spot-price-history" |] ->
         describe_spot_price_history creds
 
-      | cmd ->
-        let argc = Array.length Sys.argv in
-        if argc > 2 && Sys.argv.(1) = "terminate-instances" then
-          (* all remaining arguments are instance ids *)
-          let instance_ids = Array.to_list (Array.sub Sys.argv 2 (argc - 2)) in
-          terminate_instances creds instance_ids
-        else (
-          print_endline "unknown command";
-          exit 1
-        )
+      | [| _; "describe-instances"; region |] ->
+        describe_instances creds ~region []
+
+      | [| _; "run-instances"; region; availability_zone; key_name; image_id |] ->
+        run_instances 
+          ~region
+          ~availability_zone
+          ~key_name
+          ~image_id 
+          ~min_count:1 
+          ~max_count:1 
+          creds 
+
+      | [| _; "terminate-instances"; region; instance_id |] ->
+        terminate_instances creds ~region [instance_id]
+
+      | _ -> (
+        print_endline "unknown command";
+        exit 1
+      )
   in
 
   let exit_code = Lwt_unix.run (command ()) in
