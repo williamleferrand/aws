@@ -426,7 +426,7 @@ let get_object_metadata creds ~bucket ~objekt =
     let etag = find "ETag" in
     let last_modified_s = find "Last-Modified" in
     let content_length = int_of_string (find "Content-Length") in
-    let last_modified = Util.parse_amz_date_string last_modified_s in
+    let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
     let meta = (object 
       method content_type = content_type
       method etag = etag
@@ -491,7 +491,7 @@ and objects_of_xml = function
     ]);
     X.E ("StorageClass",_,[X.P storage_class])
   ]) ->
-    let last_modified = Util.parse_amz_date_string last_modified_s in
+    let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
     let size = int_of_string size in
     (object 
       method name = name

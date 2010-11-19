@@ -1,24 +1,59 @@
 module C = CalendarLib.Calendar 
 module P = CalendarLib.Printer.CalendarPrinter
+module X = Xml
+module HC = Cohttp.Http_client
 
+open Lwt
 open Creds
 open Http_method
 
+exception Error of string
+
 let sprint = Printf.sprintf
 
-let compare_fst (k1,v1) (k2,v2) = String.compare k1 k2
-let sort_by_keys params = List.sort compare_fst params
+(* convenience functions for navigating xml nodes *)
+let find_kids e_list k =
+  try
+    let el = List.find (function
+      | X.E( name, _, kids ) -> name = k
+      | X.P _ -> false
+    ) e_list in
+    let kids = 
+      match el with
+        | X.E( name, _, kids ) -> kids
+        | X.P _ -> assert false
+    in
+    Some kids
+  with Not_found -> 
+    None
 
-let datetime_format = "%FT%TZ"
+let find_kids_else_error e_list k =
+  match find_kids e_list k with 
+    | None -> raise (Error k)
+    | Some kids -> kids
 
-let expires_minutes_from_now minutes =
-  let now = C.now () in
-  let minutes_from_now = C.Period.make 0 0 0 0 minutes 0 in
-  let now_plus_minutes_from_now = C.add now minutes_from_now in
-  P.sprint datetime_format now_plus_minutes_from_now
+let find_p_kid e_list k =
+  match find_kids e_list k with
+    | None -> None
+    | Some [X.P p_kid] -> Some p_kid
+    | _ -> None
 
-let now_as_string () =
-  P.sprint datetime_format (C.now ())
+let find_e_kid e_list k =
+  match find_kids e_list k with
+    | None -> None
+    | Some [e] -> Some e
+    | _ -> None
+
+let find_p_kid_else_error e_list k =
+  match find_p_kid e_list k with
+    | None -> raise (Error k)
+    | Some p -> p
+
+let find_e_kid_else_error e_list k =
+  match find_e_kid e_list k with
+    | None -> raise (Error k)
+    | Some e -> e
+
 
 (* compute the AWS SHA1 signature that to annotate a Query-style request *)
 let signed_request
@@ -45,12 +80,12 @@ let signed_request
 
   let params = 
     match expires_minutes with
-      | Some i -> ("Expires", expires_minutes_from_now i) :: params 
-      | None -> ("Timestamp", now_as_string ()) :: params
+      | Some i -> ("Expires", Util.minutes_from_now i) :: params 
+      | None -> ("Timestamp", Util.now_as_string ()) :: params
   in
 
   let signature = 
-    let sorted_params = sort_by_keys params in
+    let sorted_params = Util.sort_assoc_list params in
     let key_equals_value = Util.encode_key_equals_value sorted_params in
     let uri_query_component = String.concat "&" key_equals_value in
     let string_to_sign = String.concat "\n" [ 
@@ -70,11 +105,6 @@ let signed_request
   sprint "http://%s%s?%s" http_host http_uri params_s
 
 
-module HC = Cohttp.Http_client
-open Lwt
-module X = Xml
-
-exception Error of string
 
 (* describe regions *)
 let item_of_xml = function
@@ -111,7 +141,7 @@ let item_of_xml = function
   ]) ->
 
     let spot_price = float_of_string spot_price_s in
-    let timestamp = Util.parse_amz_date_string timestamp_s in
+    let timestamp = Util.unixfloat_of_amz_date_string timestamp_s in
     (object 
       method instance_type = instance_type
       method product_description = product_description
@@ -141,9 +171,47 @@ let describe_spot_price_history_of_xml = function
   | _ ->
     raise (Error "DescribeSpotPriceHistoryResponse")
 
-let describe_spot_price_history ?expires_minutes creds =
-  let request = signed_request creds ?expires_minutes
-    ["Action", "DescribeSpotPriceHistory" ] 
+let filters_args kv_list =
+  let _, f = List.fold_left (
+    fun (c,accu) (k,v) ->
+      let kh = sprint "Filter.%d.Name" c, k in
+      let vh = sprint "Filter.%d.Value" c, v in
+      c+1, kh :: vh :: accu
+  ) (1,[]) kv_list
+  in
+  f
+
+type instance_type = [
+| `m1_small 
+| `m1_large 
+| `m1_xlarge 
+| `c1_medium 
+| `c1_xlarge 
+| `m2_xlarge 
+| `m2_2xlarge 
+| `m2_4xlarge 
+| `t1_micro
+]
+
+let string_of_instance_type = function
+  | `m1_small       -> "m1.small"     
+  | `m1_large       -> "m1.large"     
+  | `m1_xlarge      -> "m1.xlarge"    
+  | `c1_medium      -> "c1.medium"    
+  | `c1_xlarge      -> "c1.xlarge"    
+  | `m2_xlarge      -> "m2.xlarge"   
+  | `m2_2xlarge     -> "m2.2xlarge"   
+  | `m2_4xlarge     -> "m2.4xlarge"   
+  | `t1_micro       -> "t1.micro"
+
+let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
+  let args = 
+    match instance_type with 
+      | Some it -> filters_args ["instance-type", string_of_instance_type it ]
+      | None -> []
+  in
+  let request = signed_request creds ?region ?expires_minutes
+    (("Action", "DescribeSpotPriceHistory") :: args)
   in
   lwt header, body = HC.get request in
   let xml = X.parse_string body in
@@ -278,48 +346,6 @@ let placement_of_xml = function
   | _ ->
     raise (Error ("DescribeInstancesResponse.reservationSet...placement"))
 
-let find_kids e_list k =
-  try
-    let el = List.find (function
-      | X.E( name, _, kids ) -> name = k
-      | X.P _ -> false
-    ) e_list in
-    let kids = 
-      match el with
-        | X.E( name, _, kids ) -> kids
-        | X.P _ -> assert false
-    in
-    Some kids
-  with Not_found -> 
-    None
-
-let find_kids_else_error e_list k =
-  match find_kids e_list k with 
-    | None -> raise (Error k)
-    | Some kids -> kids
-
-let find_p_kid e_list k =
-  match find_kids e_list k with
-    | None -> None
-    | Some [X.P p_kid] -> Some p_kid
-    | _ -> None
-
-let find_e_kid e_list k =
-  match find_kids e_list k with
-    | None -> None
-    | Some [e] -> Some e
-    | _ -> None
-
-let find_p_kid_else_error e_list k =
-  match find_p_kid e_list k with
-    | None -> raise (Error k)
-    | Some p -> p
-
-let find_e_kid_else_error e_list k =
-  match find_e_kid e_list k with
-    | None -> raise (Error k)
-    | Some e -> e
-
 let instance_of_xml = function 
   | X.E("item",_,kids) ->
     
@@ -364,7 +390,7 @@ let instance_of_xml = function
 
     let state = state_of_xml state_x in
     let ami_launch_index = int_of_string ami_launch_index_s in
-    let launch_time = Util.parse_amz_date_string launch_time_s in
+    let launch_time = Util.unixfloat_of_amz_date_string launch_time_s in
     let availability_zone, group_name_opt = placement_of_xml placement_x in
     (object 
       method id = id
@@ -393,21 +419,22 @@ let instance_of_xml = function
   | _ ->
     raise (Error "DescribeInstancesResponse.reservationSet.item.instancesSet")
 
-let reservation_of_xml = function
-  | [X.E("reservationId",_,[X.P reservation_id]);
-     X.E("ownerId",_,[X.P owner_id]);
-     X.E("groupSet",_,groups_x);
-     X.E("instancesSet",_,instances_x)
-    ] ->
-    let groups = List.map group_of_xml groups_x in
-    let instances = List.map instance_of_xml instances_x in
-    (object
-      method id = reservation_id
-      method owner_id = owner_id
-      method groups = groups 
-      method instances = instances
-     end)
-  | _ -> raise (Error "DescribeInstancesResponse.reservationSet.item.*")
+let reservation_of_xml kids = 
+  let fp = find_p_kid_else_error kids in
+  let fe = find_kids_else_error kids in
+  let reservation_id = fp "reservationId" in
+  let owner_id = fp "ownerId" in
+  let groups_x = fe "groupSet" in
+  let instances_x = fe "instancesSet" in
+  let groups = List.map group_of_xml groups_x in
+  let instances = List.map instance_of_xml instances_x in
+  (object
+    method id = reservation_id
+    method owner_id = owner_id
+    method groups = groups 
+    method instances = instances
+   end)
+
 
 let reservation_item_of_xml = function
   | X.E("item",_,reservation_x) -> reservation_of_xml reservation_x
@@ -475,3 +502,183 @@ let run_instances
   with
     | HC.Http_error (_,_,body) ->
       return (error_msg body)
+
+(* request spot instances *)
+type spot_instance_request_type = [`OneTime | `Persistent]
+let string_of_spot_instance_request_type = function
+  | `OneTime    -> "one-time"
+  | `Persistent -> "persistent"
+
+let spot_instance_request_type_of_string = function
+  | "one-time"   -> `OneTime   
+  | "persistent" -> `Persistent
+  | _ -> raise (Error "spot instance request type")
+
+(* request spot instance *)
+type spot_instance_request = {
+  sir_spot_price : float ;
+  sir_instance_count : int option;
+  sir_type : spot_instance_request_type option;
+  sir_valid_from : float option;
+  sir_valid_until: float option;
+  sir_launch_group : string option;
+  sir_image_id : string ;
+  sir_security_group : string option ;
+  sir_user_data : string option;
+  sir_instance_type : instance_type option;
+  sir_kernel_id : string option;
+  sir_ramdisk_id : string option;
+  sir_availability_zone : string option;
+  (* ? ls_device_name : string option *)
+  sir_monitoring_enabled : bool option;
+  sir_key_name : string option;
+  sir_availability_zone_group : string option;
+}  
+
+let minimal_spot_instance_request ~spot_price ~image_id = {
+  sir_spot_price = spot_price;
+  sir_instance_count = None;
+  sir_type = None;
+  sir_valid_from = None;
+  sir_valid_until = None;
+  sir_launch_group = None;
+  sir_image_id = image_id;
+  sir_security_group = None;
+  sir_user_data = None;
+  sir_instance_type = None;
+  sir_kernel_id = None;
+  sir_ramdisk_id = None;
+  sir_availability_zone = None;
+  sir_monitoring_enabled = None;
+  sir_key_name = None;
+  sir_availability_zone_group = None;
+}
+  
+
+let spot_instance_request_args sir = 
+  let args = ref [] in
+  let add k f = function
+    | Some x -> args := (k, f x) :: !args
+    | None -> ()
+  in
+  let addid k = add k (fun s -> s) in
+  add "SpotPrice" string_of_float (Some sir.sir_spot_price);
+  add "InstanceCount" string_of_int sir.sir_instance_count;
+  add "Type" string_of_spot_instance_request_type sir.sir_type;
+  add "ValidFrom" Util.amz_date_string_of_unixfloat sir.sir_valid_from;
+  add "ValidUntil" Util.amz_date_string_of_unixfloat sir.sir_valid_until;
+  addid "LaunchGroup" sir.sir_launch_group;
+  addid "LaunchSpecification.KeyName" sir.sir_key_name;
+  addid "LaunchSpecification.ImageId" (Some sir.sir_image_id);
+  addid "LaunchSpecification.SecurityGroup" sir.sir_security_group;
+  add "LaunchSpecification.UserData" Util.base64 sir.sir_user_data;
+  add "LaunchSpecification.InstanceType" string_of_instance_type sir.sir_instance_type;
+  addid "LaunchSpecification.KernelId" sir.sir_kernel_id;
+  addid "LaunchSpecification.RamdiskId" sir.sir_ramdisk_id;
+  addid "LaunchSpecification.Placement.AvailabilityZone" sir.sir_availability_zone;
+  add "LaunchSpecification.Monitoring.Enabled" string_of_bool sir.sir_monitoring_enabled;
+  addid "AvailabilityZoneGroup" sir.sir_availability_zone_group;
+  !args
+  
+
+type spot_instance_request_state = [ `Active | `Open | `Closed | `Cancelled | `Failed ]
+let string_of_spot_instance_request_state = function
+  | `Active    -> "active"
+  | `Open      -> "open"
+  | `Closed    -> "closed"
+  | `Cancelled -> "cancelled"
+  | `Failed    -> "failed"
+
+let spot_instance_request_state_of_string = function
+  | "active"    -> `Active 
+  | "open"      -> `Open     
+  | "closed"    -> `Closed   
+  | "cancelled" -> `Cancelled
+  | "failed"    -> `Failed   
+  | _ -> raise (Error "spot instance request state")
+
+type spot_instance_request_description = < 
+  id : string; 
+  instance_id_opt : string option;
+  sir_type : spot_instance_request_type ; 
+  spot_price : float;
+  state : spot_instance_request_state;
+  image_id : string;
+  key_name : string;
+  groups : string list
+>
+
+let spot_instance_request_of_xml = function
+  | X.E("item",_,kids) ->
+    let fp = find_p_kid_else_error kids in
+    let fpo = find_p_kid kids in
+    let sir_id = fp "spotInstanceRequestId" in
+    let spot_price = float_of_string (fp "spotPrice") in
+    let state = spot_instance_request_state_of_string (fp "state") in
+    let sir_type = spot_instance_request_type_of_string (fp "type") in
+    let instance_id_opt = fpo "instanceId" in
+
+    let launch_specification_x = find_kids_else_error kids "launchSpecification" in
+    let fp = find_p_kid_else_error launch_specification_x in
+    let image_id = fp "imageId" in
+    let key_name = fp "keyName" in
+    let groups_x = find_kids_else_error launch_specification_x "groupSet" in
+    let groups = List.map group_of_xml groups_x in
+
+    (object 
+      method id = sir_id
+      method spot_price = spot_price
+      method state = state
+      method sir_type = sir_type
+      method instance_id_opt = instance_id_opt
+      method image_id = image_id
+      method key_name = key_name
+      method groups = groups
+     end)
+  | _ ->
+    raise (Error "RequestSpotInstancesResponse.spotInstanceRequestSet.item")
+    
+let request_spot_instances_of_xml = function
+  | X.E("RequestSpotInstancesResponse",_,[
+    _; X.E("spotInstanceRequestSet",_,items)
+  ]) ->
+    List.map spot_instance_request_of_xml items
+  | _ ->
+    raise (Error ("RequestSpotInstancesResponse"))
+
+let request_spot_instances ?region creds spot_instance_request = 
+  let args = spot_instance_request_args spot_instance_request in
+  let request = signed_request creds ?region 
+    (("Action", "RequestSpotInstances") :: args)
+  in
+  try_lwt 
+    lwt header, body = HC.get request in
+    let xml = X.xml_of_string body in
+    return (`Ok (request_spot_instances_of_xml xml))
+  with
+    | HC.Http_error (_,_,body) ->
+      return (error_msg body)
+  
+(* describe spot instance requests *)
+let describe_spot_instance_requests_of_xml = function 
+  | X.E("DescribeSpotInstanceRequestsResponse",_,[
+    _;
+    X.E("spotInstanceRequestSet",_,items)
+  ]) -> 
+    List.map spot_instance_request_of_xml items
+
+  | _ ->
+    raise (Error "DescribeSpotInstanceRequestsResponse")
+
+let describe_spot_instance_requests ?region creds =
+  let request = signed_request creds ?region ["Action", "DescribeSpotInstanceRequests"] in
+  try_lwt
+    lwt header, body = HC.get request in
+    let xml = X.xml_of_string body in
+    return (`Ok (describe_spot_instance_requests_of_xml xml))
+  with 
+    | HC.Http_error (_,_,body) ->
+      return (error_msg body)
+
+(* cancel spot instance requests *)
+

@@ -1,14 +1,21 @@
-(* ec2 command line client *)
+(* ec2 toplevel *)
 open Lwt
 open Printf
 
-let describe_regions creds () =
-  lwt regions = EC2.describe_regions creds in
-  List.iter (fun (id, name) -> Printf.printf "%s\t%s\n" id name) regions;
-  return 0
+let run = Lwt_unix.run 
 
-let describe_spot_price_history creds () =
-  lwt history = EC2.describe_spot_price_history creds in
+let creds = Util.creds_of_env ()
+
+let string_of_opt = function
+  | None -> "-"
+  | Some s -> s
+
+let describe_regions () =
+  let regions = run (EC2.describe_regions creds) in
+  List.iter (fun (id, name) -> Printf.printf "%s\t%s\n" id name) regions
+
+let describe_spot_price_history ?instance_type ?region () =
+  let history = run (EC2.describe_spot_price_history ?region ?instance_type creds) in
   List.iter (
     fun h -> 
       Printf.printf "%s\t%s\t%0.4f\t%0.3f\n" 
@@ -16,11 +23,11 @@ let describe_spot_price_history creds () =
         h#product_description
         h#spot_price
         h#timestamp
-  ) history;
-  return 0
+  ) history
 
-let terminate_instances ~region creds instance_ids () =
-  lwt resp = EC2.terminate_instances ~region creds instance_ids in
+
+let terminate_instances ?region instance_ids =
+  let resp = run (EC2.terminate_instances ?region creds instance_ids) in
   match resp with
     | `Ok killed -> 
       List.iter (
@@ -31,13 +38,8 @@ let terminate_instances ~region creds instance_ids () =
             i#previous_state#code
             i#current_state#name
             i#current_state#code
-      ) killed;
-      return 0
-    | `Error msg -> print_endline msg; return 1
-
-let string_of_opt = function
-  | None -> "-"
-  | Some s -> s
+      ) killed
+    | `Error msg -> print_endline msg
 
 let print_reservation r =
   List.iter (
@@ -50,15 +52,14 @@ let print_reservation r =
         (string_of_opt instance#dns_name_opt)
   ) r#instances
 
-let describe_instances ~region creds instance_ids () =
-  lwt resp = EC2.describe_instances ~region creds instance_ids in
+let describe_instances ?region instance_ids =
+  let resp = run (EC2.describe_instances ?region creds instance_ids) in
   match resp with
     | `Ok reservations ->
-      List.iter print_reservation reservations; return 0
-    | `Error msg -> print_endline msg; return 1
+      List.iter print_reservation reservations
+    | `Error msg -> print_endline msg
 
 let run_instances 
-    creds 
     ~key_name 
     ~region
     ~availability_zone 
@@ -66,58 +67,43 @@ let run_instances
     ~min_count 
     ~max_count () =
 
-  lwt resp = EC2.run_instances 
+  let resp = run (EC2.run_instances 
     creds 
     ~key_name 
     ~region
     ~availability_zone 
     ~image_id
     ~min_count 
-    ~max_count 
+    ~max_count
+  )
   in
   match resp with
     | `Ok reservation ->
-      print_reservation reservation; return 0
-    | `Error msg -> print_endline msg; return 1
+      print_reservation reservation
+    | `Error msg -> print_endline msg
 
-let _ =
-  let creds = 
-    try 
-      Util.creds_of_env () 
-    with Failure msg -> 
-      print_endline msg;
-      exit 1
-  in
+let print_spot_instance_request_descriptions sir_descriptions =
+  List.iter (
+    fun d ->
+      printf "%s\t%s\t%s\t%0.3f\t%s\t%s\t%s\t%s\n"
+        d#id
+        (string_of_opt d#instance_id_opt)
+        (EC2.string_of_spot_instance_request_type d#sir_type)
+        d#spot_price
+        (EC2.string_of_spot_instance_request_state d#state)
+        d#image_id
+        d#key_name
+        (String.concat "," d#groups)
+  ) sir_descriptions
 
-  let command = 
-    match Sys.argv with
-      | [| _; "describe-regions" |] -> 
-        describe_regions creds 
+let request_spot_instances ?region ?key_name ?availability_zone_group sirs =
+  let resp = run (EC2.request_spot_instances ?region creds sirs) in
+  match resp with
+    | `Ok sir_descrs -> print_spot_instance_request_descriptions sir_descrs
+    | `Error msg -> print_endline msg
 
-      | [| _; "describe-spot-price-history" |] ->
-        describe_spot_price_history creds
-
-      | [| _; "describe-instances"; region |] ->
-        describe_instances creds ~region []
-
-      | [| _; "run-instances"; region; availability_zone; key_name; image_id |] ->
-        run_instances 
-          ~region
-          ~availability_zone
-          ~key_name
-          ~image_id 
-          ~min_count:1 
-          ~max_count:1 
-          creds 
-
-      | [| _; "terminate-instances"; region; instance_id |] ->
-        terminate_instances creds ~region [instance_id]
-
-      | _ -> (
-        print_endline "unknown command";
-        exit 1
-      )
-  in
-
-  let exit_code = Lwt_unix.run (command ()) in
-  exit exit_code
+let describe_spot_instance_requests ?region () =
+  let resp = run (EC2.describe_spot_instance_requests ?region creds) in
+  match resp with
+    | `Ok sir_descr -> print_spot_instance_request_descriptions sir_descr
+    | `Error msg -> print_endline msg

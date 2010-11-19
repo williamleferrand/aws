@@ -81,7 +81,7 @@ module P = CalendarLib.Printer.CalendarPrinter
 
 (* parse string of the format ["2009-12-04T22:33:47.279Z"], return
    seconds since Unix epoch. *)
-let parse_amz_date_string str =
+let unixfloat_of_amz_date_string str =
   let year, month, day, hour, minute, second, millisecond =
     Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
       fun year month day hour minute second millisecond ->
@@ -93,8 +93,25 @@ let parse_amz_date_string str =
   let millis = (float_of_int millisecond) /. 1000. in
   t +. millis
 
+let amz_date_string_of_unixfloat f =
+  let dt = P.sprint "%FT%T" (C.from_unixfloat f) in
+  (* add trailing millis and 'Z' *)
+  let millis = truncate ((f -. (float_of_int (truncate f))) *. 1000.) in
+  Printf.sprintf "%s.%dZ" dt millis
+
+
 let date_string_of_unixfloat f =
   P.sprint "%F %T%z" (C.from_unixfloat f)
+
+let minutes_from_now minutes =
+  let now = Unix.gettimeofday () in
+  let seconds_from_now = minutes * 60 in
+  let now_plus_minutes = now +. (float_of_int seconds_from_now) in
+  amz_date_string_of_unixfloat now_plus_minutes
+
+let now_as_string () =
+  amz_date_string_of_unixfloat (Unix.gettimeofday ())
+
 
 let rec list_map_i f list =
   loop f 0 [] list
