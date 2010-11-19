@@ -19,11 +19,11 @@ FILES[] = s3 eC2 http_method util creds xml
 LIB = aws
 OCAML_LIBS[] = $(LIB)
 
-ec2c: ec2c.ml $(LIB).cma
-  $(OCAMLFIND) ocamlmktop $(OCAMLFLAGS) -package $(string $(OCAMLPACKS)) $(LIB).cma ec2c.ml -o ec2c -linkpkg
+ec2sh: ec2sh.ml $(LIB).cma
+  $(OCAMLFIND) ocamlmktop $(OCAMLFLAGS) -package $(string $(OCAMLPACKS)) $(LIB).cma ec2sh.ml -o ec2sh -linkpkg
 
 .DEFAULT: $(OCamlLibrary $(LIB), $(FILES)) \
-  $(OCamlProgram s3c, s3c) ec2c 
+  $(OCamlProgram s3c, s3c) ec2sh
 
 .PHONY:  clean
 
