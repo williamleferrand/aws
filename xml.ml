@@ -11,8 +11,6 @@ let xml_of_string s =
   let _, node = Xmlm.input_doc_tree ~el ~data input in
   node
   
-let parse_string = xml_of_string
-
 let frag = function
   | E (name, attrs, kids) -> `El ((("", name), attrs), kids) 
   | P d -> `Data d 

@@ -224,7 +224,7 @@ let auth_hdr
 
 let error_msg body = 
   (* <Error><Code>SomeMessage</Code>...</Error> *)
-  match X.parse_string body with
+  match X.xml_of_string body with
     | X.E ("Error",_, (X.E ("Code",_, [X.P msg])) :: _ ) -> 
       return (`Error msg)
     | _ -> 
@@ -343,7 +343,7 @@ let list_buckets creds =
   try_lwt
     lwt headers, body = HC.get ~headers request_url in
     try
-      let buckets = list_all_my_buckets_result_of_xml (X.parse_string body) in
+      let buckets = list_all_my_buckets_result_of_xml (X.xml_of_string body) in
       return (`Ok buckets)
     with (Error _) as exn ->
       fail exn
@@ -512,7 +512,7 @@ let list_objects creds bucket =
   let request_url = service_url ^ (Util.encode_url bucket) in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
-    return (`Ok (list_bucket_result_of_xml (X.parse_string response_body)))
+    return (`Ok (list_bucket_result_of_xml (X.xml_of_string response_body)))
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
@@ -624,7 +624,7 @@ let get_bucket_acl creds bucket =
   in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
-    return (`Ok (access_control_policy_of_xml (X.parse_string response_body))) 
+    return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body))) 
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
@@ -741,7 +741,7 @@ let get_object_acl creds ~bucket ~objekt =
   in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
-    return (`Ok (access_control_policy_of_xml (X.parse_string response_body))) 
+    return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body))) 
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (_,_,body) -> error_msg body
