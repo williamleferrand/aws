@@ -107,3 +107,14 @@ let describe_spot_instance_requests ?region () =
   match resp with
     | `Ok sir_descr -> print_spot_instance_request_descriptions sir_descr
     | `Error msg -> print_endline msg
+
+let cancel_spot_instance_requests ?region sir_list =
+  let resp = run (EC2.cancel_spot_instance_requests ?region creds sir_list) in
+  match resp with
+    | `Ok sir_state_list -> 
+      List.iter (
+        fun (sir, state) -> printf "%s\t%s\n" 
+          sir (EC2.string_of_spot_instance_request_state state)
+      ) sir_state_list
+    | `Error msg -> print_endline msg
+  

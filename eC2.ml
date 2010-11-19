@@ -128,7 +128,7 @@ let describe_regions ?expires_minutes creds =
   let request = signed_request creds ?expires_minutes
     ["Action", "DescribeRegions" ] in
   lwt header, body = HC.get request in
-  let xml = X.parse_string body in  
+  let xml = X.xml_of_string body in  
   return (describe_regions_response_of_xml xml)
 
 (* describe spot price history *)
@@ -214,11 +214,11 @@ let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
     (("Action", "DescribeSpotPriceHistory") :: args)
   in
   lwt header, body = HC.get request in
-  let xml = X.parse_string body in
+  let xml = X.xml_of_string body in
   return (describe_spot_price_history_of_xml xml)
 
 (* terminate instances *)
-class state code name =
+class instance_state code name =
 object
   method code : int = code
   method name : string = name
@@ -228,7 +228,7 @@ let state_of_xml = function
   | [ X.E ("code",_,[X.P code_s]);
       X.E ("name",_,[X.P name])
     ] ->
-    new state (int_of_string code_s) name
+    new instance_state (int_of_string code_s) name
   | _ ->
     raise (Error "state")
 
@@ -308,7 +308,7 @@ type instance = <
   reason_opt : string option; 
   root_device_name_opt : string option; 
   root_device_type : string; 
-  state : state;
+  state : instance_state;
   virtualization_type : string ;
   monitoring : string
 >
@@ -681,4 +681,31 @@ let describe_spot_instance_requests ?region creds =
       return (error_msg body)
 
 (* cancel spot instance requests *)
+let item_of_xml = function
+  | X.E("item",_,[
+    X.E("spotInstanceRequestId",_,[X.P sir_id]); 
+    X.E("state",_,[X.P state_s])
+  ]) ->
+    sir_id, spot_instance_request_state_of_string state_s
+  | _ -> raise (Error ("CancelSpotInstanceRequestsResponse.item"))
+
+let cancel_spot_instance_requests_of_xml = function
+  | X.E("CancelSpotInstanceRequestsResponse",_,[
+    _; X.E("spotInstanceRequestSet",_,items_x)
+  ])-> 
+    List.map item_of_xml items_x
+  | _ -> raise (Error "CancelSpotInstanceRequestsResponse")
+
+let cancel_spot_instance_requests ?region creds sir_ids =
+  let sir_ids_args = Util.list_map_i (
+    fun i sir_id -> sprint "SpotInstanceRequestId.%d" (i+1), sir_id
+  ) sir_ids in
+  let args = ("Action","CancelSpotInstanceRequests") :: sir_ids_args in
+  let request = signed_request ?region creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    let xml = X.xml_of_string body in
+    return (`Ok (cancel_spot_instance_requests_of_xml xml))
+  with 
+    | HC.Http_error (_,_,body) -> return (error_msg body)
 
