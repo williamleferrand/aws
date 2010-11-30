@@ -79,19 +79,24 @@ let creds_of_env () = {
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 
-(* parse string of the format ["2009-12-04T22:33:47.279Z"], return
-   seconds since Unix epoch. *)
+(* parse string of the format ["2009-12-04T22:33:47.279Z"], or ["Tue,
+   30 Nov 2010 05:02:47 GMT"]; return seconds since Unix epoch. *)
 let unixfloat_of_amz_date_string str =
-  let year, month, day, hour, minute, second, millisecond =
-    Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
-      fun year month day hour minute second millisecond ->
-        year, month, day, hour, minute, second, millisecond
-    ) 
-  in
-  let z = C.make year month day hour minute second in
-  let t = C.to_unixfloat z  in
-  let millis = (float_of_int millisecond) /. 1000. in
-  t +. millis
+  try
+    let year, month, day, hour, minute, second, millisecond =
+      Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
+        fun year month day hour minute second millisecond ->
+          year, month, day, hour, minute, second, millisecond
+      ) 
+    in
+    let z = C.make year month day hour minute second in
+    let t = C.to_unixfloat z  in
+    let millis = (float_of_int millisecond) /. 1000. in
+    t +. millis
+
+  with Scanf.Scan_failure _ ->
+    (* make a second attempt, now with a different format. ugh *)
+    C.to_unixfloat (P.from_fstring "%A, %d %b %Y %H:%M:%S GMT" str)
 
 let amz_date_string_of_unixfloat f =
   let dt = P.sprint "%FT%T" (C.from_unixfloat f) in
