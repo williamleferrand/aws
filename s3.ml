@@ -272,7 +272,7 @@ let get_object ?byte_range creds_opt ~bucket ~objekt ~path =
   in
   let headers = headers @ byte_range_header in
   let flags = [ Unix.O_CREAT; Unix.O_WRONLY; Unix.O_APPEND; Unix.O_TRUNC ] in
-  let outchan = Lwt_io.open_file ~flags ~mode:Lwt_io.output path in
+  lwt outchan = Lwt_io.open_file ~flags ~mode:Lwt_io.output path in
   lwt res = 
     try_lwt
       lwt _ = HC.get_to_chan ~headers request_url outchan in
@@ -379,15 +379,15 @@ let put_object
   let headers = ("Date", date) :: ("Content-Type", content_type) ::
     authorization_header :: amz_headers
   in
-  let request_body, close =
+  lwt request_body, close =
     match body with
       | `String contents -> 
-        `String contents, noop
+        return (`String contents, noop)
       | `File path -> 
         let file_size = Util.file_size path in
         let flags = [Unix.O_RDONLY] in
-        let inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
-        `InChannel (file_size, inchan), fun _ -> Lwt_io.close inchan
+        lwt inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
+        return (`InChannel (file_size, inchan), fun () -> Lwt_io.close inchan)
   in
   try_lwt
     lwt _ = HC.put ~headers ~body:request_body request_url in
