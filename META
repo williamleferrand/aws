@@ -1,6 +1,5 @@
 description = "Aws -- clients of Amazon Web Services"
 version = "1.0"
 requires = "netstring cryptokit calendar xml-light ocaml-cohttp lwt.syntax"
-preprocessor = "foo"
 archive(byte) = "aws.cma"
 archive(native) = "aws.cmxa"
