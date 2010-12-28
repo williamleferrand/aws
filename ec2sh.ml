@@ -44,12 +44,13 @@ let terminate_instances ?region instance_ids =
 let print_reservation r =
   List.iter (
     fun instance ->
-      printf "%s\t%s\t%s\t%s\t%s\n" 
+      printf "%s\t%s\t%s\t%s\t%s\t%f\n" 
         r#id 
         instance#id
         instance#image_id
         (string_of_opt instance#private_dns_name_opt)
         (string_of_opt instance#dns_name_opt)
+        instance#launch_time
   ) r#instances
 
 let describe_instances ?region instance_ids =
