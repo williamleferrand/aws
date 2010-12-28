@@ -39,8 +39,8 @@ open Printf
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 
-let create_bucket creds bucket () =
-  lwt result = S3.create_bucket creds bucket `Private in
+let create_bucket creds region bucket () =
+  lwt result = S3.create_bucket creds region bucket `Private in
   let exit_code = 
     match result with
       | `Ok -> print_endline "ok"; 0
@@ -48,8 +48,8 @@ let create_bucket creds bucket () =
   in
   return exit_code
 
-let delete_bucket creds bucket () =
-  lwt result = S3.delete_bucket creds bucket in
+let delete_bucket creds region bucket () =
+  lwt result = S3.delete_bucket creds region bucket in
   let exit_code = 
     match result with
     | `Ok -> print_endline "ok"; 0
@@ -57,8 +57,8 @@ let delete_bucket creds bucket () =
   in
   return exit_code
 
-let list_buckets creds () =
-  lwt result = S3.list_buckets creds in
+let list_buckets creds region () =
+  lwt result = S3.list_buckets creds region in
   let exit_code = 
     match result with
       | `Ok bucket_infos -> 
@@ -71,8 +71,8 @@ let list_buckets creds () =
   in
   return exit_code
 
-let get_object_s creds bucket objekt () =
-  lwt result = S3.get_object_s (Some creds) ~bucket ~objekt in
+let get_object_s creds region bucket objekt () =
+  lwt result = S3.get_object_s (Some creds) region ~bucket ~objekt in
   let exit_code = 
     match result with
       | `Ok body -> print_string body; 0
@@ -81,8 +81,8 @@ let get_object_s creds bucket objekt () =
   in
   return exit_code
 
-let get_object creds bucket objekt path () =
-  lwt result = S3.get_object (Some creds) ~bucket ~objekt ~path in
+let get_object creds region bucket objekt path () =
+  lwt result = S3.get_object (Some creds) region ~bucket ~objekt ~path in
   let exit_code = 
     match result with
       | `Ok -> print_endline "ok"; 0
@@ -91,8 +91,8 @@ let get_object creds bucket objekt path () =
   in
   return exit_code
 
-let get_object_range creds bucket objekt path start fini () =
-  lwt result = S3.get_object ~byte_range:(start, fini) (Some creds) 
+let get_object_range creds region bucket objekt path start fini () =
+  lwt result = S3.get_object ~byte_range:(start, fini) (Some creds) region 
     ~bucket ~objekt ~path in
   let exit_code = 
     match result with
@@ -102,8 +102,8 @@ let get_object_range creds bucket objekt path start fini () =
   in
   return exit_code
 
-let put_object creds bucket objekt path () =
-  lwt result = S3.put_object creds ~bucket ~objekt ~body:(`File path) in
+let put_object creds region bucket objekt path () =
+  lwt result = S3.put_object creds region ~bucket ~objekt ~body:(`File path) in
   let exit_code = 
     match result with
       | `Ok -> 0
@@ -111,8 +111,8 @@ let put_object creds bucket objekt path () =
   in
   return exit_code
 
-let put_object_s creds bucket objekt contents () =
-  lwt result = S3.put_object creds ~bucket ~objekt ~body:(`String contents) in
+let put_object_s creds region bucket objekt contents () =
+  lwt result = S3.put_object creds region ~bucket ~objekt ~body:(`String contents) in
   let exit_code = 
     match result with
       | `Ok -> 0
@@ -120,8 +120,8 @@ let put_object_s creds bucket objekt contents () =
   in
   return exit_code
 
-let delete_object creds bucket objekt () =
-  lwt result = S3.delete_object creds ~bucket ~objekt in
+let delete_object creds region bucket objekt () =
+  lwt result = S3.delete_object creds region ~bucket ~objekt in
   let exit_code = 
     match result with
       | `Ok -> 0
@@ -137,8 +137,8 @@ let print_kv_list kv_list =
       printf "%s: %s\n" k v
   ) kv_list
 
-let get_object_metadata creds bucket objekt () =
-  lwt result = S3.get_object_metadata creds ~bucket ~objekt in
+let get_object_metadata creds region bucket objekt () =
+  lwt result = S3.get_object_metadata creds region ~bucket ~objekt in
   let exit_code = 
     match result with
       | `Ok m -> 
@@ -158,8 +158,8 @@ let some_or_empty = function
   | Some s -> s
   | None -> ""
 
-let list_objects creds bucket () =
-  lwt result = S3.list_objects creds bucket in
+let list_objects creds region bucket () =
+  lwt result = S3.list_objects creds region bucket in
   let exit_code = 
     match result with
       | `Ok res -> 
@@ -196,8 +196,8 @@ let print_acl acl =
         (S3.string_of_permission permission);
   ) acl#grants
 
-let get_bucket_acl creds bucket () =
-  lwt result = S3.get_bucket_acl creds bucket in
+let get_bucket_acl creds region bucket () =
+  lwt result = S3.get_bucket_acl creds region bucket in
   let exit_code = 
     match result with
       | `Ok acl -> print_acl acl; 0
@@ -206,7 +206,7 @@ let get_bucket_acl creds bucket () =
   in
   return exit_code  
 
-let grant_bucket_permission creds bucket 
+let grant_bucket_permission creds region bucket 
     ~grantee_aws_id 
     ~grantee_aws_display_name 
     ~permission
@@ -219,7 +219,7 @@ let grant_bucket_permission creds bucket
   in
 
   (* get the acl *)
-  lwt result = S3.get_bucket_acl creds bucket in
+  lwt result = S3.get_bucket_acl creds region bucket in
   lwt exit_code = 
     match result with
       | `Ok acl -> (
@@ -227,7 +227,7 @@ let grant_bucket_permission creds bucket
         (* now that we have the acl, modified it by adding to it yet another grant *)
         let grant = grantee, S3.permission_of_string permission in
         let acl_1 = new S3.acl acl#owner (grant :: acl#grants) in
-        lwt result = S3.set_bucket_acl creds bucket acl_1 in
+        lwt result = S3.set_bucket_acl creds region bucket acl_1 in
         let exit_code = 
           match result with
             | `Ok -> print_endline "ok"; 0
@@ -251,7 +251,7 @@ let grants_not_equal (grantee_1,perm_1) (grantee_2,perm_2) =
       | `canonical_user cn1, `canonical_user cn2 -> cn1#id <> cn2#id
       | _ -> true
 
-let revoke_bucket_permission creds bucket 
+let revoke_bucket_permission creds region bucket 
     ~grantee_aws_id 
     ~grantee_aws_display_name 
     ~permission
@@ -268,7 +268,7 @@ let revoke_bucket_permission creds bucket
   let grant = grantee, permission in
 
   (* get the acl *)
-  lwt result = S3.get_bucket_acl creds bucket in
+  lwt result = S3.get_bucket_acl creds region bucket in
 
   lwt exit_code = 
     match result with
@@ -283,7 +283,7 @@ let revoke_bucket_permission creds bucket
         else (
           (* construct a new acl without that grant *)
           let acl_1 = new S3.acl acl#owner grants_1 in
-          lwt result = S3.set_bucket_acl creds bucket acl_1 in
+          lwt result = S3.set_bucket_acl creds region bucket acl_1 in
           let exit_code = 
             match result with
                 | `Ok -> print_endline "ok"; 0
@@ -299,8 +299,8 @@ let revoke_bucket_permission creds bucket
   in
   return exit_code
 
-let get_object_acl creds bucket objekt () =
-  lwt result = S3.get_object_acl creds ~bucket ~objekt in
+let get_object_acl creds region bucket objekt () =
+  lwt result = S3.get_object_acl creds region ~bucket ~objekt in
   let exit_code = 
     match result with
       | `Ok acl -> print_acl acl; 0
@@ -309,7 +309,7 @@ let get_object_acl creds bucket objekt () =
   in
   return exit_code  
 
-let grant_object_permission creds ~bucket ~objekt
+let grant_object_permission creds region ~bucket ~objekt
     ~grantee_aws_id 
     ~grantee_aws_display_name 
     ~permission
@@ -322,7 +322,7 @@ let grant_object_permission creds ~bucket ~objekt
   in
 
   (* get the acl *)
-  lwt result = S3.get_bucket_acl creds bucket in
+  lwt result = S3.get_bucket_acl creds region bucket in
   lwt exit_code = 
     match result with
       | `Ok acl -> (
@@ -331,7 +331,7 @@ let grant_object_permission creds ~bucket ~objekt
            another grant *)
         let grant = grantee, S3.permission_of_string permission in
         let acl_1 = new S3.acl acl#owner (grant :: acl#grants) in
-        lwt result = S3.set_object_acl creds ~bucket ~objekt acl_1 in
+        lwt result = S3.set_object_acl creds region ~bucket ~objekt acl_1 in
         let exit_code = 
           match result with
             | `Ok -> print_endline "ok"; 0
@@ -349,7 +349,7 @@ let grant_object_permission creds ~bucket ~objekt
   in
   return exit_code
 
-let revoke_object_permission creds ~bucket ~objekt
+let revoke_object_permission creds region ~bucket ~objekt
     ~grantee_aws_id 
     ~grantee_aws_display_name 
     ~permission
@@ -366,7 +366,7 @@ let revoke_object_permission creds ~bucket ~objekt
   let grant = grantee, permission in
 
   (* get the acl *)
-  lwt result = S3.get_object_acl creds ~bucket ~objekt in
+  lwt result = S3.get_object_acl creds region ~bucket ~objekt in
 
   lwt exit_code = 
     match result with
@@ -381,7 +381,7 @@ let revoke_object_permission creds ~bucket ~objekt
         else (
           (* construct a new acl without that grant *)
           let acl_1 = new S3.acl acl#owner grants_1 in
-          lwt result = S3.set_object_acl creds ~bucket ~objekt acl_1 in
+          lwt result = S3.set_object_acl creds region ~bucket ~objekt acl_1 in
           let exit_code = 
             match result with
                 | `Ok -> print_endline "ok"; 0
@@ -412,74 +412,74 @@ let _ =
 
   let command = 
     match Sys.argv with
-      | [| _; "delete-bucket"; bucket |] -> 
-        delete_bucket creds bucket
+      | [| _; "delete-bucket"; region; bucket |] -> 
+        delete_bucket creds (S3.region_of_string region) bucket
 
-      | [| _; "create-bucket"; bucket |] -> 
-        create_bucket creds bucket 
+      | [| _; "create-bucket"; region; bucket |] -> 
+        create_bucket creds (S3.region_of_string region) bucket 
 
-      | [| _; "get-bucket-acl"; bucket |] -> 
-        get_bucket_acl creds bucket
+      | [| _; "get-bucket-acl"; region; bucket |] -> 
+        get_bucket_acl creds (S3.region_of_string region) bucket
 
-      | [| _; "grant-bucket-permission"; bucket; 
+      | [| _; "grant-bucket-permission"; region; bucket; 
            grantee_aws_id; grantee_aws_display_name;
            permission
         |] -> 
-        grant_bucket_permission creds bucket 
+        grant_bucket_permission creds (S3.region_of_string region) bucket 
           ~grantee_aws_id ~grantee_aws_display_name 
           ~permission
 
-      | [| _; "revoke-bucket-permission"; bucket; 
+      | [| _; "revoke-bucket-permission"; region; bucket; 
            grantee_aws_id; grantee_aws_display_name;
            permission
         |] -> 
-        revoke_bucket_permission creds bucket 
+        revoke_bucket_permission creds (S3.region_of_string region) bucket 
           ~grantee_aws_id ~grantee_aws_display_name 
           ~permission
 
-      | [| _; "list-buckets" |] -> 
-        list_buckets creds
+      | [| _; "list-buckets"; region |] -> 
+        list_buckets creds (S3.region_of_string region)
 
-      | [| _; "get-object-s"; bucket; objekt |] -> 
-        get_object_s creds bucket objekt
+      | [| _; "get-object-s"; region; bucket; objekt |] -> 
+        get_object_s creds (S3.region_of_string region) bucket objekt
 
-      | [| _; "get-object"; bucket; objekt; path|] -> 
-        get_object creds bucket objekt path
+      | [| _; "get-object"; region; bucket; objekt; path|] -> 
+        get_object creds (S3.region_of_string region) bucket objekt path
 
-      | [| _; "get-object-range"; bucket; objekt; path; start; fini|] -> 
-        get_object_range creds bucket objekt path 
+      | [| _; "get-object-range"; region; bucket; objekt; path; start; fini|] -> 
+        get_object_range creds (S3.region_of_string region) bucket objekt path 
           (int_of_string start) (int_of_string fini)
 
-      | [| _; "put-object"; bucket; objekt ; path |] -> 
-        put_object creds bucket objekt path
+      | [| _; "put-object"; region; bucket; objekt ; path |] -> 
+        put_object creds (S3.region_of_string region) bucket objekt path
 
-      | [| _; "put-object-s"; bucket; objekt ; contents |] -> 
-        put_object_s creds bucket objekt contents
+      | [| _; "put-object-s"; region; bucket; objekt ; contents |] -> 
+        put_object_s creds (S3.region_of_string region) bucket objekt contents
 
-      | [| _; "get-object-metadata"; bucket ; objekt |] -> 
-        get_object_metadata creds bucket objekt
+      | [| _; "get-object-metadata"; region; bucket ; objekt |] -> 
+        get_object_metadata creds (S3.region_of_string region) bucket objekt
 
-      | [| _; "list-objects"; bucket |] -> 
-        list_objects creds bucket
+      | [| _; "list-objects"; region; bucket |] -> 
+        list_objects creds (S3.region_of_string region) bucket
 
-      | [| _; "get-object-acl"; bucket; objekt |] ->
-        get_object_acl creds bucket objekt 
+      | [| _; "get-object-acl"; region; bucket; objekt |] ->
+        get_object_acl creds (S3.region_of_string region) bucket objekt 
 
-      | [| _; "delete-object"; bucket; objekt |] ->
-        delete_object creds bucket objekt 
+      | [| _; "delete-object"; region; bucket; objekt |] ->
+        delete_object creds (S3.region_of_string region) bucket objekt 
 
-      | [| _; "grant-object-permission"; bucket; objekt;
+      | [| _; "grant-object-permission"; region; bucket; objekt;
            grantee_aws_id; grantee_aws_display_name;
            permission
         |] -> 
-        grant_object_permission creds ~bucket ~objekt
+        grant_object_permission creds (S3.region_of_string region) ~bucket ~objekt
           ~grantee_aws_id ~grantee_aws_display_name 
           ~permission
 
-      | [| _; "revoke-object-permission"; bucket; objekt;
+      | [| _; "revoke-object-permission"; region; bucket; objekt;
            grantee_aws_id; grantee_aws_display_name; permission
         |] -> 
-        revoke_object_permission creds ~bucket ~objekt
+        revoke_object_permission creds (S3.region_of_string region) ~bucket ~objekt
           ~grantee_aws_id ~grantee_aws_display_name 
           ~permission
 

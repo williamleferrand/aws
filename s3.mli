@@ -34,6 +34,16 @@
 
 exception Error of string
 
+type region = [ 
+| `us_east_1 
+| `us_west_1 
+| `eu_west_1 
+| `ap_southeast_1 
+]
+
+val string_of_region : region -> string
+val region_of_string : string -> region
+
 type amz_acl = [ 
 | `Private 
 | `public_read 
@@ -43,18 +53,19 @@ type amz_acl = [
 | `bucket_owner_full_control 
 ]
 
-val create_bucket : Creds.t ->  string -> amz_acl -> 
+val create_bucket : Creds.t ->  region -> string -> amz_acl -> 
   [> `Error of string | `Ok ] Lwt.t
 
-val delete_bucket : Creds.t ->  string ->  
+val delete_bucket : Creds.t ->  region -> string ->  
   [> `Error of string | `Ok ] Lwt.t
 
-val list_buckets : Creds.t ->   
+val list_buckets : Creds.t -> region ->
   [> `Error of string 
   | `Ok of < creation_date : string; name : string > list ] Lwt.t
 
 val get_object_s : 
   Creds.t option ->
+  region ->
   bucket:string ->
   objekt:string -> 
   [> `NotFound | `Error of string | `Ok of string ] Lwt.t
@@ -62,6 +73,7 @@ val get_object_s :
 val get_object :
   ?byte_range: (int * int) ->
   Creds.t option ->
+  region -> 
   bucket:string ->
   objekt:string ->
   path:string ->
@@ -70,7 +82,8 @@ val get_object :
 val put_object : 
   ?content_type:string ->
   ?amz_acl:amz_acl ->
-  Creds.t ->  
+  Creds.t ->
+  region ->  
   bucket:string ->
   objekt:string -> 
   body:[ `File of string | `String of string ] ->
@@ -78,6 +91,7 @@ val put_object :
 
 val get_object_metadata :
   Creds.t ->
+  region ->
   bucket:string ->
   objekt:string -> 
   [> `NotFound 
@@ -93,6 +107,7 @@ val get_object_metadata :
   
 val list_objects :
   Creds.t ->
+  region ->
   string -> 
   [> `Error of string 
   | `NotFound 
@@ -147,11 +162,13 @@ end
 
 val get_bucket_acl :
   Creds.t ->
+  region ->
   string -> 
   [> `Error of string | `NotFound | `Ok of acl ] Lwt.t
 
 val set_bucket_acl :
   Creds.t ->
+  region ->
   string ->
   acl ->
   [> `Error of string | `NotFound | `Ok ] Lwt.t
@@ -159,18 +176,21 @@ val set_bucket_acl :
 
 val delete_object :
   Creds.t ->
+  region ->
   bucket:string ->
   objekt:string ->
   [> `Error of string | `BucketNotFound | `Ok ] Lwt.t
 
 val get_object_acl :
   Creds.t ->
+  region ->
   bucket:string ->
   objekt:string ->
   [> `Error of string | `NotFound | `Ok of acl ] Lwt.t  
 
 val set_object_acl :
   Creds.t ->
+  region ->
   bucket:string ->
   objekt:string ->
   acl ->
