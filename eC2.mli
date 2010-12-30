@@ -150,7 +150,12 @@ val request_spot_instances :
 val describe_spot_instance_requests :
   ?region:string ->
   Creds.t ->
+  string list ->
   [> `Error of string | `Ok of spot_instance_request_description list ] Lwt.t  
+(* [describe_spot_instance_requests region ~return creds ids] returns
+   a description of the spot instance requests associated with each of
+   the id's in [ids]; when [ids] is an empty list, all the spot
+   instance request descriptions are returned. *)
 
 val cancel_spot_instance_requests :
   ?region:string ->

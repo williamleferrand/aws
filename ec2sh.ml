@@ -103,8 +103,8 @@ let request_spot_instances ?region ?key_name ?availability_zone_group sirs =
     | `Ok sir_descrs -> print_spot_instance_request_descriptions sir_descrs
     | `Error msg -> print_endline msg
 
-let describe_spot_instance_requests ?region () =
-  let resp = run (EC2.describe_spot_instance_requests ?region creds) in
+let describe_spot_instance_requests ?region sir_ids () =
+  let resp = run (EC2.describe_spot_instance_requests ?region creds sir_ids) in
   match resp with
     | `Ok sir_descr -> print_spot_instance_request_descriptions sir_descr
     | `Error msg -> print_endline msg

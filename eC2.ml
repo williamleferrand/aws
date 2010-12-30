@@ -670,8 +670,16 @@ let describe_spot_instance_requests_of_xml = function
   | _ ->
     raise (Error "DescribeSpotInstanceRequestsResponse")
 
-let describe_spot_instance_requests ?region creds =
-  let request = signed_request creds ?region ["Action", "DescribeSpotInstanceRequests"] in
+let sir_args_of_ids sir_ids = 
+  Util.list_map_i (
+    fun i sir_id -> 
+      sprint "SpotInstanceRequestId.%d" (i+1), sir_id
+  ) sir_ids 
+
+let describe_spot_instance_requests ?region creds sir_ids =
+  let sir_ids_args = sir_args_of_ids sir_ids in
+  let request = signed_request creds ?region 
+    (("Action", "DescribeSpotInstanceRequests") :: sir_ids_args) in
   try_lwt
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
@@ -697,9 +705,7 @@ let cancel_spot_instance_requests_of_xml = function
   | _ -> raise (Error "CancelSpotInstanceRequestsResponse")
 
 let cancel_spot_instance_requests ?region creds sir_ids =
-  let sir_ids_args = Util.list_map_i (
-    fun i sir_id -> sprint "SpotInstanceRequestId.%d" (i+1), sir_id
-  ) sir_ids in
+  let sir_ids_args = sir_args_of_ids sir_ids in
   let args = ("Action","CancelSpotInstanceRequests") :: sir_ids_args in
   let request = signed_request ?region creds args in
   try_lwt
