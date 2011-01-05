@@ -32,12 +32,10 @@ let terminate_instances ?region instance_ids =
     | `Ok killed -> 
       List.iter (
         fun i ->
-          printf "%s\t%s\t%d\t%s\t%d\n" 
+          printf "%s\t%s\t%s\n" 
             i#instance_id
-            i#previous_state#name
-            i#previous_state#code
-            i#current_state#name
-            i#current_state#code
+            (EC2.string_of_instance_state i#previous_state)
+            (EC2.string_of_instance_state i#current_state)
       ) killed
     | `Error msg -> print_endline msg
 

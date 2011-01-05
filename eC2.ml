@@ -218,17 +218,46 @@ let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
   return (describe_spot_price_history_of_xml xml)
 
 (* terminate instances *)
-class instance_state code name =
-object
-  method code : int = code
-  method name : string = name
-end
+
+(* from:
+   http://docs.amazonwebservices.com/AWSEC2/latest/APIReference/index.html?ApiReference-ItemType-InstanceStateType.html
+*)
+
+type instance_state = [
+| `pending 
+| `running 
+| `shutting_down 
+| `terminated 
+| `stopping 
+| `stopped
+| `problematic
+]
+
+let instance_state_of_code = function
+  |  0  -> `pending
+  | 16  -> `running
+  | 32  -> `shutting_down
+  | 48  -> `terminated
+  | 64  -> `stopping
+  | 80  -> `stopped
+  | 272 -> `problematic
+  | _   -> raise (Error "instance_state_of_code")
+
+let string_of_instance_state = function
+  | `pending       -> "pending"
+  | `running       -> "running"
+  | `shutting_down -> "shutting-down"
+  | `terminated    -> "terminated"
+  | `stopping      -> "stopping"
+  | `stopped       -> "stopped"
+  | `problematic   -> "problematic"
+
 
 let state_of_xml = function
   | [ X.E ("code",_,[X.P code_s]);
       X.E ("name",_,[X.P name])
     ] ->
-    new instance_state (int_of_string code_s) name
+    instance_state_of_code (int_of_string code_s) 
   | _ ->
     raise (Error "state")
 

@@ -28,10 +28,17 @@ val describe_spot_price_history :
     timestamp : float 
   > list Lwt.t
 
-type instance_state = <
-  name : string ;
-  code : int
->
+type instance_state = [
+| `pending 
+| `running 
+| `shutting_down 
+| `terminated 
+| `stopping 
+| `stopped
+| `problematic
+]
+
+val string_of_instance_state : instance_state -> string
 
 val terminate_instances : 
   ?expires_minutes:int ->
