@@ -443,7 +443,7 @@ let put_object
       error_msg body
     | exn ->
       lwt () = close () in
-      raise exn
+      fail exn
 
 
 (* get object metadata *)
