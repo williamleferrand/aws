@@ -57,7 +57,7 @@ val terminate_instances :
 type instance = <
   id : string;
   ami_launch_index : int; 
-  architecture : string;
+  architecture_opt : string option;
   availability_zone : string; 
   dns_name_opt : string option;
   group_name_opt : string option; 
@@ -75,7 +75,7 @@ type instance = <
   root_device_name_opt : string option; 
   root_device_type : string; 
   state : instance_state;
-  virtualization_type : string ;
+  virtualization_type_opt : string option;
   monitoring : string
 >
 
@@ -98,6 +98,7 @@ val run_instances :
   ?key_name:string ->
   ?availability_zone:string ->
   ?region:string ->
+  ?instance_type:instance_type ->
   Creds.t ->
   image_id:string ->
   min_count:int ->

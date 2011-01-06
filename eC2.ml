@@ -320,7 +320,7 @@ let terminate_instances ?expires_minutes ?region creds instance_ids =
 type instance = <
   id : string;
   ami_launch_index : int; 
-  architecture : string;
+  architecture_opt : string option;
   availability_zone : string; 
   dns_name_opt : string option;
   group_name_opt : string option; 
@@ -338,7 +338,7 @@ type instance = <
   root_device_name_opt : string option; 
   root_device_type : string; 
   state : instance_state;
-  virtualization_type : string ;
+  virtualization_type_opt : string option;
   monitoring : string
 >
 
@@ -392,10 +392,10 @@ let instance_of_xml = function
     let launch_time_s = fp "launchTime" in
     let placement_x = find_kids_else_error kids "placement" in
     let kernel_id = fp "kernelId" in
-    let virtualization_type = fp "virtualizationType" in
+    let virtualization_type_opt = fpo "virtualizationType" in
     let private_ip_address_opt = fpo "privateIpAddress" in
     let ip_address_opt = fpo "ipAddress" in
-    let architecture = fp "architecture" in
+    let architecture_opt = fpo "architecture" in
     let root_device_type = fp "rootDeviceType" in
     let root_device_name_opt = find_p_kid kids "rootDeviceName" in
     let reason_opt = fpo "reason" in
@@ -438,11 +438,11 @@ let instance_of_xml = function
       method ramdisk_id_opt = ramdisk_id_opt
       method private_ip_address_opt = private_ip_address_opt
       method ip_address_opt = ip_address_opt
-      method architecture = architecture
+      method architecture_opt = architecture_opt
       method root_device_type = root_device_type
       method root_device_name_opt = root_device_name_opt
       method lifecycle_opt = lifecycle_opt
-      method virtualization_type = virtualization_type
+      method virtualization_type_opt = virtualization_type_opt
       method monitoring = monitoring
      end)
   | _ ->
@@ -509,6 +509,7 @@ let run_instances
     ?key_name 
     ?availability_zone
     ?region
+    ?instance_type
     creds 
     ~image_id 
     ~min_count 
@@ -523,6 +524,8 @@ let run_instances
   let args = augment_opt 
     (fun az -> "Placement.AvailabilityZone", az) args availability_zone in
   let args = augment_opt (fun kn -> "KeyName", kn) args key_name in
+  let args = augment_opt (fun it -> "InstanceType", string_of_instance_type it) 
+    args instance_type in
   let request = signed_request creds ?expires_minutes ?region args in
   try_lwt 
     lwt header, body = HC.get request in
