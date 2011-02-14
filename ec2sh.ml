@@ -4,7 +4,7 @@ open Printf
 
 let run = Lwt_unix.run 
 
-let creds = Util.creds_of_env ()
+let creds = Aws_util.creds_of_env ()
 
 let string_of_opt = function
   | None -> "-"

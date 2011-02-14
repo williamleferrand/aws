@@ -14,7 +14,7 @@ BYTE_ENABLED = true
 OCAMLFLAGS  += -dtypes 
 OCAMLFINDFLAGS += -syntax camlp4o
 
-FILES[] = s3 eC2 http_method util creds xml
+FILES[] = s3 eC2 http_method aws_util creds xml
 
 LIB = aws
 OCAML_LIBS[] = $(LIB)

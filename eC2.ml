@@ -7,6 +7,8 @@ open Lwt
 open Creds
 open Http_method
 
+module Util = Aws_util
+
 exception Error of string
 
 let sprint = Printf.sprintf

@@ -39,6 +39,8 @@ open Printf
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 
+module Util = Aws_util
+
 let create_bucket creds region bucket () =
   lwt result = S3.create_bucket creds region bucket `Private in
   let exit_code = 

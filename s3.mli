@@ -35,10 +35,10 @@
 exception Error of string
 
 type region = [ 
-| `us_east_1 
-| `us_west_1 
-| `eu_west_1 
-| `ap_southeast_1 
+| `US_EAST_1 
+| `US_WEST_1 
+| `EU_WEST_1 
+| `AP_SOUTHEAST_1 
 ]
 
 val string_of_region : region -> string
