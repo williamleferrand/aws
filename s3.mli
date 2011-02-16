@@ -48,27 +48,34 @@ type amz_acl = [
 | `Private 
 | `public_read 
 | `public_read_write 
-| `auauthenticated_read 
-| `buckbucket_owner_read 
+| `authenticated_read 
+| `bucket_owner_read 
 | `bucket_owner_full_control 
 ]
+
+(* Note: `PermanentRedirect is a result of many of the functions
+   below.  If the specified region is us-east-1, and this not the
+   correct region for the bucket in question, the target region of is
+   unknown. *)
 
 val create_bucket : Creds.t ->  region -> string -> amz_acl -> 
   [> `Error of string | `Ok ] Lwt.t
 
 val delete_bucket : Creds.t ->  region -> string ->  
-  [> `Error of string | `Ok ] Lwt.t
+  [> `Error of string | `Ok | `PermanentRedirect of region option ] Lwt.t
 
 val list_buckets : Creds.t -> region ->
   [> `Error of string 
-  | `Ok of < creation_date : string; name : string > list ] Lwt.t
+  | `Ok of < creation_date : string; name : string > list 
+  | `PermanentRedirect of region option 
+  ] Lwt.t
 
 val get_object_s : 
   Creds.t option ->
   region ->
   bucket:string ->
   objekt:string -> 
-  [> `NotFound | `Error of string | `Ok of string ] Lwt.t
+  [> `NotFound | `Error of string | `Ok of string | `PermanentRedirect of region option ] Lwt.t
 
 val get_object :
   ?byte_range: (int * int) ->
@@ -77,7 +84,7 @@ val get_object :
   bucket:string ->
   objekt:string ->
   path:string ->
-  [> `Error of string | `NotFound | `Ok ] Lwt.t
+  [> `Error of string | `NotFound | `Ok | `PermanentRedirect of region option ] Lwt.t
 
 val put_object : 
   ?content_type:string ->
@@ -87,7 +94,7 @@ val put_object :
   bucket:string ->
   objekt:string -> 
   body:[ `File of string | `String of string ] ->
-  [> `Error of string | `Ok ] Lwt.t
+  [> `Error of string | `Ok | `PermanentRedirect of region option ] Lwt.t
 
 val get_object_metadata :
   Creds.t ->
@@ -98,13 +105,14 @@ val get_object_metadata :
   | `Error of string 
   | `Ok of < 
       content_length : int; 
-      content_type : string; 
-      etag : string; 
-      last_modified : float
-    > 
+   content_type : string; 
+   etag : string; 
+   last_modified : float
+   > 
+  | `PermanentRedirect of region option
   ] Lwt.t
 
-  
+    
 val list_objects :
   Creds.t ->
   region ->
@@ -113,20 +121,21 @@ val list_objects :
   | `NotFound 
   | `Ok of < 
       name : string; 
-      prefix : string option;
-      marker : string option; 
-      max_keys : int; 
-      is_truncated : bool; 
-      objects : < 
-        etag : string; 
-        last_modified : float;
-        name : string; 
-        owner_display_name : string;
-        owner_id : string; 
-        size : int;
-        storage_class : string 
-      > list;
-    > 
+   prefix : string option;
+   marker : string option; 
+   max_keys : int; 
+   is_truncated : bool; 
+   objects : < 
+     etag : string; 
+   last_modified : float;
+   name : string; 
+   owner_display_name : string;
+   owner_id : string; 
+   size : int;
+   storage_class : string 
+   > list;
+   > 
+  | `PermanentRedirect of region option
   ] Lwt.t
 
 type permission = [
@@ -164,14 +173,14 @@ val get_bucket_acl :
   Creds.t ->
   region ->
   string -> 
-  [> `Error of string | `NotFound | `Ok of acl ] Lwt.t
+  [> `Error of string | `NotFound | `Ok of acl | `PermanentRedirect of region option ] Lwt.t
 
 val set_bucket_acl :
   Creds.t ->
   region ->
   string ->
   acl ->
-  [> `Error of string | `NotFound | `Ok ] Lwt.t
+  [> `Error of string | `NotFound | `Ok | `PermanentRedirect of region option ] Lwt.t
 
 
 val delete_object :
@@ -179,14 +188,14 @@ val delete_object :
   region ->
   bucket:string ->
   objekt:string ->
-  [> `Error of string | `BucketNotFound | `Ok ] Lwt.t
+  [> `Error of string | `BucketNotFound | `Ok | `PermanentRedirect of region option ] Lwt.t
 
 val get_object_acl :
   Creds.t ->
   region ->
   bucket:string ->
   objekt:string ->
-  [> `Error of string | `NotFound | `Ok of acl ] Lwt.t  
+  [> `Error of string | `NotFound | `Ok of acl | `PermanentRedirect of region option ] Lwt.t  
 
 val set_object_acl :
   Creds.t ->
@@ -194,5 +203,5 @@ val set_object_acl :
   bucket:string ->
   objekt:string ->
   acl ->
-  [> `Error of string | `NotFound | `Ok ] Lwt.t  
+  [> `Error of string | `NotFound | `Ok | `PermanentRedirect of region option ] Lwt.t  
 

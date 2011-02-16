@@ -41,6 +41,12 @@ module P = CalendarLib.Printer.CalendarPrinter
 
 module Util = Aws_util
 
+let redirect = function
+  | Some region ->
+      print_endline ("premament redirect to region " ^ (S3.string_of_region region))
+  | None ->
+    print_endline "premament redirect to unknown region"
+
 let create_bucket creds region bucket () =
   lwt result = S3.create_bucket creds region bucket `Private in
   let exit_code = 
@@ -56,6 +62,7 @@ let delete_bucket creds region bucket () =
     match result with
     | `Ok -> print_endline "ok"; 0
     | `Error msg -> print_endline msg; 1
+    | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -70,6 +77,7 @@ let list_buckets creds region () =
         ) bucket_infos;
         0
       | `Error body -> print_endline body; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -80,6 +88,7 @@ let get_object_s creds region bucket objekt () =
       | `Ok body -> print_string body; 0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -90,6 +99,7 @@ let get_object creds region bucket objekt path () =
       | `Ok -> print_endline "ok"; 0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -101,6 +111,7 @@ let get_object_range creds region bucket objekt path start fini () =
       | `Ok -> print_endline "ok"; 0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -110,6 +121,7 @@ let put_object creds region bucket objekt path () =
     match result with
       | `Ok -> 0
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -119,6 +131,7 @@ let put_object_s creds region bucket objekt contents () =
     match result with
       | `Ok -> 0
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -129,6 +142,7 @@ let delete_object creds region bucket objekt () =
       | `Ok -> 0
       | `BucketNotFound -> printf "%s not found\n%!" bucket; 0
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
   
@@ -153,6 +167,7 @@ let get_object_metadata creds region bucket objekt () =
         0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 1
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code
 
@@ -186,6 +201,7 @@ let list_objects creds region bucket () =
         0
       | `NotFound -> printf "bucket %s not found\n%!" bucket; 1
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code  
 
@@ -205,6 +221,7 @@ let get_bucket_acl creds region bucket () =
       | `Ok acl -> print_acl acl; 0
       | `NotFound -> printf "bucket %s not found\n%!" bucket; 1
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code  
 
@@ -235,12 +252,14 @@ let grant_bucket_permission creds region bucket
             | `Ok -> print_endline "ok"; 0
             | `NotFound -> printf "setting bucket acl on %s failed\n%!" bucket; 1
             | `Error msg -> print_endline msg; 1
+            | `PermanentRedirect region -> redirect region; 1
         in
         return exit_code
       )
 
       | `NotFound -> printf "getting bucket acl on %s failed\n%!" bucket; return 1
       | `Error msg -> print_endline msg; return 1
+      | `PermanentRedirect region -> redirect region; return 1
   in
   return exit_code
 
@@ -291,6 +310,7 @@ let revoke_bucket_permission creds region bucket
                 | `Ok -> print_endline "ok"; 0
                 | `NotFound -> printf "setting bucket acl on %s failed\n%!" bucket; 1
                 | `Error msg -> print_endline msg; 1
+                | `PermanentRedirect region -> redirect region; 1
           in
           return exit_code
         )
@@ -298,6 +318,7 @@ let revoke_bucket_permission creds region bucket
 
       | `NotFound -> printf "getting bucket acl on %s failed\n%!" bucket; return 1
       | `Error msg -> print_endline msg; return 1
+      | `PermanentRedirect region -> redirect region; return 1
   in
   return exit_code
 
@@ -308,6 +329,7 @@ let get_object_acl creds region bucket objekt () =
       | `Ok acl -> print_acl acl; 0
       | `NotFound -> printf "object %s/%s not found\n%!" bucket objekt; 1
       | `Error msg -> print_endline msg; 1
+      | `PermanentRedirect region -> redirect region; 1
   in
   return exit_code  
 
@@ -339,6 +361,7 @@ let grant_object_permission creds region ~bucket ~objekt
             | `Ok -> print_endline "ok"; 0
             | `NotFound -> printf "setting bucket acl on %s failed\n%!" bucket; 1
             | `Error msg -> print_endline msg; 1
+            | `PermanentRedirect region -> redirect region; 1
         in
         return exit_code
       )
@@ -346,8 +369,8 @@ let grant_object_permission creds region ~bucket ~objekt
       | `NotFound -> printf "getting object acl on %s/%s failed\n%!" bucket objekt; 
         return 1
 
-      | `Error msg -> print_endline msg; 
-        return 1
+      | `Error msg -> print_endline msg; return 1
+      | `PermanentRedirect region -> redirect region; return 1
   in
   return exit_code
 
@@ -390,6 +413,7 @@ let revoke_object_permission creds region ~bucket ~objekt
                 | `NotFound -> 
                   printf "setting object acl on %s/%s failed\n%!" bucket objekt; 1
                 | `Error msg -> print_endline msg; 1
+                | `PermanentRedirect region -> redirect region; 1
           in
           return exit_code
         )
@@ -398,8 +422,8 @@ let revoke_object_permission creds region ~bucket ~objekt
       | `NotFound -> printf "getting object acl on %s/%s failed\n%!" bucket objekt; 
         return 1
 
-      | `Error msg -> print_endline msg; 
-        return 1
+      | `Error msg -> print_endline msg; return 1
+      | `PermanentRedirect region -> redirect region; return 1
   in
   return exit_code
 

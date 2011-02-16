@@ -78,18 +78,18 @@ type amz_acl = [
 | `Private (* not using [`private] because [private] is an ocaml keyword *)
 | `public_read 
 | `public_read_write 
-| `auauthenticated_read 
-| `buckbucket_owner_read 
+| `authenticated_read 
+| `bucket_owner_read 
 | `bucket_owner_full_control 
 ]
 
 
 let string_of_amz_acl = function
-  | `Private -> "private"
-  | `public_read -> "public-read"
-  | `public_read_write -> "public-read-write"
-  | `auauthenticated_read -> "authenticated-read"
-  | `buckbucket_owner_read -> "bucket-owner-read"
+  | `Private                   -> "private"
+  | `public_read               -> "public-read"
+  | `public_read_write         -> "public-read-write"
+  | `authenticated_read        -> "authenticated-read"
+  | `bucket_owner_read         -> "bucket-owner-read"
   | `bucket_owner_full_control -> "bucket-owner-full-control"
 
 let sign key string_to_sign =
@@ -250,15 +250,90 @@ let auth_hdr
   let signature = sign creds.Creds.aws_secret_access_key string_to_sign in
   "Authorization", sprintf "AWS %s:%s" creds.Creds.aws_access_key_id signature
 
+let find_element kids key = 
+  try
+    Some (
+      List.find (
+        fun kid -> 
+          match kid with
+            | X.E ( k, _, _ ) when k = key -> true
+            | _ -> false
+      ) kids
+    )
+  with Not_found ->
+    None
+
 let error_msg body = 
   (* <Error><Code>SomeMessage</Code>...</Error> *)
-  match X.xml_of_string body with
-    | X.E ("Error",_, (X.E ("Code",_, [X.P msg])) :: _ ) -> 
-      return (`Error msg)
-    | _ -> 
+  try
+    match X.xml_of_string body with
+      | X.E ("Error",_, kids ) -> (
+        match find_element kids "Code" with 
+          | Some (X.E( "Code", _, [X.P msg] )) -> return (`Error msg)
+          | _ -> fail (Error body)
+      )
+
+      | _ -> 
         (* complain if can't interpret the xml, and then just use the
-           entire body as the payload for the exception *)
-      fail (Error body)
+         entire body as the payload for the exception *)
+        fail (Error body)
+
+  with Xmlm.Error (_,err) ->
+    fail (Error body)
+    
+
+let s3_region_regexp = Pcre.regexp "s3(-(.*))?"
+
+let region_of_endpoint s =
+  match Pcre.split ~pat:"\\." s with
+    | [ _bucket ; s3_region_s ; "amazonaws" ; "com" ] -> (
+      (match Pcre.extract ~rex:s3_region_regexp s3_region_s with
+        | [| _; _; region_s |] ->  (
+          try 
+            Some (region_of_string region_s)
+          with Invalid_argument _ ->
+            None
+        )
+
+        | _ -> None
+
+      )
+    )
+    | _ -> None
+
+
+(* problem/bug?: if the specified region is us-east-1, and this not
+   the correct region for that bucket, the redirected endpoint is
+   <bucket>.s3.amazonaws.com, which does not reveal the correct region
+   of the bucket. *)
+let permanent_redirect_of_string body = 
+  (* <Endpoint>mybucket.us-west-1.s3.amazonaws.com</Endpoint>, or
+     <Endpoint>mybucket.s3.amazonaws.com</Endpoint>
+  *)
+  try
+    match X.xml_of_string body with
+      | X.E ("Error",_, kids ) -> (
+
+        match 
+          find_element kids "Code", 
+          find_element kids "Endpoint" 
+        with
+          | Some (X.E( "Code", _, [X.P "PermanentRedirect"] )),
+            Some (X.E( "Endpoint", _, [X.P endpoint] )) ->
+            return (`PermanentRedirect (region_of_endpoint endpoint))
+
+          | Some (X.E( "Code", _, [X.P msg] )), _ -> return (`Error msg)
+          | _ -> fail (Error body)
+
+      )
+
+      | _ -> 
+        (* complain if can't interpret the xml, and then just use the
+         entire body as the payload for the exception *)
+        fail (Error body)
+
+  with Xmlm.Error (_,err) ->
+    fail (Error body)
 
 let get_object_h creds_opt region ~bucket ~objekt  =
   let date = now_as_string () in
@@ -289,6 +364,7 @@ let get_object_s creds_opt region ~bucket ~objekt =
     return (`Ok body)
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_, _, body) -> error_msg body
 
 let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
@@ -301,15 +377,28 @@ let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
   let headers = headers @ byte_range_header in
   let flags = [ Unix.O_CREAT; Unix.O_WRONLY; Unix.O_APPEND; Unix.O_TRUNC ] in
   lwt outchan = Lwt_io.open_file ~flags ~mode:Lwt_io.output path in
+  let close_no_err () =
+    (* close (a possibly already closed) channel *)
+    try_lwt Lwt_io.close outchan with _ -> return ()
+  in
   lwt res = 
     try_lwt
       lwt _ = HC.get_to_chan ~headers request_url outchan in
       return `Ok
     with 
       | HC.Http_error (404,_,_) -> return `NotFound
-      | HC.Http_error (_, _, body) -> error_msg body
+      | HC.Http_error (301,_,_) -> 
+        (* error message possibly stored in body, so read it 
+           back from the file in which it was just stored: *)
+        lwt () = close_no_err () in
+        lwt body = Util.file_contents path in
+        permanent_redirect_of_string body
+      | HC.Http_error (_, _,_) -> 
+        lwt () = close_no_err () in
+        lwt body = Util.file_contents path in
+        error_msg body
   in
-  lwt () = Lwt_io.close outchan in
+  lwt () = close_no_err () in
   return res
   
 (* create bucket *)
@@ -341,7 +430,8 @@ let create_bucket creds region bucket amz_acl =
     lwt _ = HC.put ~headers ~body:(`String body) request_url in
     return `Ok
   with HC.Http_error (_, _, body) ->
-    error_msg body
+    error_msg body 
+
 
 (* delete bucket *)
 let delete_bucket creds region bucket =
@@ -357,10 +447,9 @@ let delete_bucket creds region bucket =
     (* success signaled via a 204 *)
     fail (Error "delete_bucket")
   with 
-    | HC.Http_error (204, _, _) ->
-      return `Ok
-    | HC.Http_error (_,_,body) ->
-      error_msg body
+    | HC.Http_error (204, _, _   ) -> return `Ok
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body 
 
 (* list buckets *)
 let rec bucket = function
@@ -392,8 +481,9 @@ let list_buckets creds region =
       return (`Ok buckets)
     with (Error _) as exn ->
       fail exn
-  with HC.Http_error (_, _, body) ->
-    error_msg body
+  with 
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body
 
 
 (* put object *)
@@ -439,13 +529,12 @@ let put_object
     lwt _ = HC.put ~headers ~body:request_body request_url in
     lwt () = close () in
     return `Ok
-  with 
-    | HC.Http_error (_, _, body) ->
-      lwt () = close () in
-      error_msg body
-    | exn ->
-      lwt () = close () in
-      fail exn
+  with exn ->
+    lwt () = close () in
+    match exn with
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_, _, body)   -> error_msg body
+    | _                            -> fail exn
 
 
 (* get object metadata *)
@@ -482,9 +571,10 @@ let get_object_metadata creds region ~bucket ~objekt =
     in
     return (`Ok meta)
   with 
-    | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (_,_,body) -> error_msg body
-    
+    | HC.Http_error (404,_, _   ) -> return `NotFound
+    | HC.Http_error (301,_, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  ,_, body) -> error_msg body
+
   
 (* list objects *)
 let option_pcdata err = function
@@ -560,8 +650,9 @@ let list_objects creds region bucket =
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (list_bucket_result_of_xml (X.xml_of_string response_body)))
   with 
-    | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (_,_,body) -> error_msg body
+    | HC.Http_error (404, _, _   ) -> return `NotFound
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body
 
 (* get bucket acl *)
 type permission = [
@@ -672,8 +763,9 @@ let get_bucket_acl creds region bucket =
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body))) 
   with 
-    | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (_,_,body) -> error_msg body
+    | HC.Http_error (404, _, _   ) -> return `NotFound
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body
 
   
 (* set bucket acl *)
@@ -743,8 +835,9 @@ let set_bucket_acl creds region bucket acl  =
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok
   with 
-    | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (_,_,body) -> error_msg body
+    | HC.Http_error (404, _, _   ) -> return `NotFound
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body
 
 (* delete object *)
 let delete_object creds region ~bucket ~objekt =
@@ -766,9 +859,10 @@ let delete_object creds region ~bucket ~objekt =
     (* success actually signaled via a 204 *)
     fail (Error "delete_object")
   with
-    | HC.Http_error (404,_,_) -> return `BucketNotFound
-    | HC.Http_error (204,_,_) -> return `Ok
-    | HC.Http_error (_,_,body) -> error_msg body
+    | HC.Http_error (404, _, _   ) -> return `BucketNotFound
+    | HC.Http_error (204, _, _   ) -> return `Ok
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body
 
 (* get object acl *)
 let get_object_acl creds region ~bucket ~objekt =
@@ -790,8 +884,9 @@ let get_object_acl creds region ~bucket ~objekt =
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body))) 
   with 
-    | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (_,_,body) -> error_msg body
+    | HC.Http_error (404, _, _   ) -> return `NotFound
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _, body) -> error_msg body
 
 let set_object_acl creds region ~bucket ~objekt acl  =
   let date = now_as_string () in
@@ -814,5 +909,6 @@ let set_object_acl creds region ~bucket ~objekt acl  =
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok
   with 
-    | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (_,_,body) -> error_msg body
+    | HC.Http_error (404, _, _   ) -> return `NotFound
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
+    | HC.Http_error (_  , _ ,body) -> error_msg body

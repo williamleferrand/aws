@@ -127,3 +127,24 @@ and loop f j accu = function
     let m = f j h in
     loop f (j+1) (m::accu) t
 
+let read_contents inchan =
+  let buf = Buffer.create 1024 in
+  let rec loop () =
+    lwt s = Lwt_io.read ~count:1024 inchan in
+    if s = ""  then
+      Lwt.return (Buffer.contents buf)
+    else (
+      Buffer.add_string buf s;
+      loop ()
+    )
+  in
+  loop ()
+
+let file_contents path =
+  let flags = [Unix.O_RDONLY] in
+  lwt inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
+  lwt contents = read_contents inchan in
+  lwt () = Lwt_io.close inchan in 
+  Lwt.return contents
+
+  
