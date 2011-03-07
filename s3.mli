@@ -39,6 +39,7 @@ type region = [
 | `US_WEST_1 
 | `EU_WEST_1 
 | `AP_SOUTHEAST_1 
+| `AP_NORTHEAST_1
 ]
 
 val string_of_region : region -> string

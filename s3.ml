@@ -43,19 +43,21 @@ module Util = Aws_util
 
 let sprintf = Printf.sprintf
 
-type region = [ `US_EAST_1 | `US_WEST_1 | `EU_WEST_1 | `AP_SOUTHEAST_1 ]
+type region = [ `US_EAST_1 | `US_WEST_1 | `EU_WEST_1 | `AP_SOUTHEAST_1 | `AP_NORTHEAST_1 ]
 
 let string_of_region = function 
   | `US_EAST_1      -> "us-east-1"
   | `US_WEST_1      -> "us-west-1"
   | `EU_WEST_1      -> "eu-west-1"
   | `AP_SOUTHEAST_1 -> "ap-southeast-1"
+  | `AP_NORTHEAST_1 -> "ap-northeast-1"
 
 let region_of_string = function 
   | "us-east-1"        -> `US_EAST_1      
   | "us-west-1"        -> `US_WEST_1      
   | "eu-west-1"        -> `EU_WEST_1      
   | "ap-southeast-1"   -> `AP_SOUTHEAST_1 
+  | "ap-northeast-1"   -> `AP_NORTHEAST_1 
   | x                  -> raise (Invalid_argument ("string_of_region: " ^ x))
 
 let service_url_of_region = function
@@ -63,6 +65,7 @@ let service_url_of_region = function
   | `US_WEST_1      -> "http://s3-us-west-1.amazonaws.com/"
   | `EU_WEST_1      -> "http://s3-eu-west-1.amazonaws.com/"
   | `AP_SOUTHEAST_1 -> "http://s3-ap-southeast-1.amazonaws.com/"
+  | `AP_NORTHEAST_1 -> "http://s3-ap-northeast-1.amazonaws.com/"
 
 (* wow this is bad *)
 let location_constraint_of_region = function
@@ -70,6 +73,7 @@ let location_constraint_of_region = function
   | `US_WEST_1      -> "us-west-1"
   | `EU_WEST_1      -> "EU"
   | `AP_SOUTHEAST_1 -> "ap-southeast-1"
+  | `AP_NORTHEAST_1 -> "ap-northeast-1"
 
 let now_as_string () =
   P.sprint "%a, %d %b %Y %H:%M:%S GMT" (C.now ())
