@@ -415,7 +415,6 @@ let create_bucket creds region bucket amz_acl =
       <LocationConstraint>%s</LocationConstraint> 
     </CreateBucketConfiguration>
   " (location_constraint_of_region region) in
-  let content_md5 = Digest.to_hex (Digest.string body) in
 
   (* [Http_client] puts a default content type whenever there's a 
      non-empty body; since that contenty-type must figure into the 
@@ -423,11 +422,10 @@ let create_bucket creds region bucket amz_acl =
   let content_type = "application/xml" in
 
   let authorization_header = auth_hdr 
-    ~http_method:`PUT ~bucket ~amz_headers ~date ~content_md5 ~content_type creds 
+    ~http_method:`PUT ~bucket ~amz_headers ~date ~content_type creds 
   in
   let headers = authorization_header :: 
     ("Date", date) :: 
-    ("Content-MD5", content_md5) ::
     ("Content-Type", content_type) ::
     amz_headers in
   try_lwt
