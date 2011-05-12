@@ -191,7 +191,9 @@ type instance_type = [
 | `c1_xlarge 
 | `m2_xlarge 
 | `m2_2xlarge 
-| `m2_4xlarge 
+| `m2_4xlarge
+| `cc1_4xlarge
+| `cg1_4xlarge 
 | `t1_micro
 ]
 
@@ -204,6 +206,8 @@ let string_of_instance_type = function
   | `m2_xlarge      -> "m2.xlarge"   
   | `m2_2xlarge     -> "m2.2xlarge"   
   | `m2_4xlarge     -> "m2.4xlarge"   
+  | `cc1_4xlarge    -> "cc1.4xlarge"
+  | `cg1_4xlarge    -> "cg1.4xlarge"
   | `t1_micro       -> "t1.micro"
 
 let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
@@ -329,7 +333,7 @@ type instance = <
   image_id : string; 
   instance_type : string;
   ip_address_opt : string option; 
-  kernel_id : string;
+  kernel_id : string option;
   key_name : string; 
   launch_time : float;
   lifecycle_opt : string option; 
@@ -393,7 +397,7 @@ let instance_of_xml = function
     let instance_type = fp "instanceType" in
     let launch_time_s = fp "launchTime" in
     let placement_x = find_kids_else_error kids "placement" in
-    let kernel_id = fp "kernelId" in
+    let kernel_id = fpo "kernelId" in
     let virtualization_type_opt = fpo "virtualizationType" in
     let private_ip_address_opt = fpo "privateIpAddress" in
     let ip_address_opt = fpo "ipAddress" in

@@ -13,6 +13,8 @@ type instance_type = [
 | `m2_xlarge 
 | `m2_2xlarge 
 | `m2_4xlarge 
+| `cc1_4xlarge
+| `cg1_4xlarge 
 | `t1_micro
 ]
 val string_of_instance_type : instance_type -> string
@@ -64,7 +66,7 @@ type instance = <
   image_id : string; 
   instance_type : string;
   ip_address_opt : string option; 
-  kernel_id : string;
+  kernel_id : string option;
   key_name : string; 
   launch_time : float;
   lifecycle_opt : string option; 
