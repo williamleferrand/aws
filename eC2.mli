@@ -18,6 +18,7 @@ type instance_type = [
 | `t1_micro
 ]
 val string_of_instance_type : instance_type -> string
+val instance_type_of_string : string -> instance_type option
 
 val describe_spot_price_history : 
   ?expires_minutes:int ->
@@ -60,14 +61,14 @@ type instance = <
   id : string;
   ami_launch_index : int; 
   architecture_opt : string option;
-  availability_zone : string; 
+  placement_availability_zone_opt : string option; 
   dns_name_opt : string option;
-  group_name_opt : string option; 
+  placement_group_opt : string option; 
   image_id : string; 
-  instance_type : string;
+  instance_type : instance_type;
   ip_address_opt : string option; 
-  kernel_id : string option;
-  key_name : string; 
+  kernel_id_opt : string option;
+  key_name_opt : string option; 
   launch_time : float;
   lifecycle_opt : string option; 
   private_dns_name_opt : string option;
@@ -98,8 +99,9 @@ val describe_instances :
 val run_instances :
   ?expires_minutes:int -> 
   ?key_name:string ->
-  ?availability_zone:string ->
+  ?placement_availability_zone:string ->
   ?region:string ->
+  ?placement_group:string ->
   ?instance_type:instance_type ->
   Creds.t ->
   image_id:string ->
@@ -133,6 +135,8 @@ type spot_instance_request = {
   sir_monitoring_enabled : bool option;
   sir_key_name : string option;
   sir_availability_zone_group : string option;
+  sir_placement_group : string option; 
+  (* as distinct from LaunchGroup; assuming this works, although not documented *)
 }  
 
 val minimal_spot_instance_request : 
@@ -143,12 +147,13 @@ val minimal_spot_instance_request :
 type spot_instance_request_description = < 
   id : string; 
   instance_id_opt : string option;
-  sir_type : spot_instance_request_type ; 
+  sir_type : spot_instance_request_type; 
   spot_price : float;
   state : spot_instance_request_state;
-  image_id : string ;
-  key_name : string ;
-  groups : string list
+  image_id_opt : string option;
+  key_name_opt : string option;
+  groups : string list;
+  placement_group_opt : string option;
 >
 
 val request_spot_instances : 

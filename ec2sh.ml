@@ -61,7 +61,7 @@ let describe_instances ?region instance_ids =
 let run_instances 
     ~key_name 
     ~region
-    ~availability_zone 
+    ~placement_availability_zone 
     ~image_id 
     ~min_count 
     ~max_count () =
@@ -70,7 +70,7 @@ let run_instances
     creds 
     ~key_name 
     ~region
-    ~availability_zone 
+    ~placement_availability_zone 
     ~image_id
     ~min_count 
     ~max_count
@@ -90,8 +90,8 @@ let print_spot_instance_request_descriptions sir_descriptions =
         (EC2.string_of_spot_instance_request_type d#sir_type)
         d#spot_price
         (EC2.string_of_spot_instance_request_state d#state)
-        d#image_id
-        d#key_name
+        (match d#image_id_opt with Some image_id -> image_id | None -> "--")
+        (match d#key_name_opt with Some key_name -> key_name | None -> "--")
         (String.concat "," d#groups)
   ) sir_descriptions
 

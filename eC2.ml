@@ -210,6 +210,20 @@ let string_of_instance_type = function
   | `cg1_4xlarge    -> "cg1.4xlarge"
   | `t1_micro       -> "t1.micro"
 
+let instance_type_of_string = function
+  | "m1.small"    -> Some `m1_small        
+  | "m1.large"    -> Some `m1_large        
+  | "m1.xlarge"   -> Some `m1_xlarge       
+  | "c1.medium"   -> Some `c1_medium       
+  | "c1.xlarge"   -> Some `c1_xlarge       
+  | "m2.xlarge"   -> Some `m2_xlarge      
+  | "m2.2xlarge"  -> Some `m2_2xlarge      
+  | "m2.4xlarge"  -> Some `m2_4xlarge      
+  | "cc1.4xlarge" -> Some `cc1_4xlarge    
+  | "cg1.4xlarge" -> Some `cg1_4xlarge    
+  | "t1.micro"    -> Some `t1_micro       
+  | _ -> None
+
 let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
   let args = 
     match instance_type with 
@@ -327,14 +341,14 @@ type instance = <
   id : string;
   ami_launch_index : int; 
   architecture_opt : string option;
-  availability_zone : string; 
+  placement_availability_zone_opt : string option; 
   dns_name_opt : string option;
-  group_name_opt : string option; 
+  placement_group_opt : string option; 
   image_id : string; 
-  instance_type : string;
+  instance_type : instance_type;
   ip_address_opt : string option; 
-  kernel_id : string option;
-  key_name : string; 
+  kernel_id_opt : string option;
+  key_name_opt : string option; 
   launch_time : float;
   lifecycle_opt : string option; 
   private_dns_name_opt : string option;
@@ -367,19 +381,10 @@ let group_of_xml = function
         "item"]
     ))
            
-let placement_of_xml = function
-  | [X.E("availabilityZone",_,[X.P availability_zone]);
-     X.E("groupName",_,group_name_x) ] ->
-    let group_name_opt = 
-      match group_name_x with
-        | [] -> None
-        | [X.P group_name] -> Some group_name
-        | _ ->
-          raise (Error ("DescribeInstancesResponse.reservationSet...placement.groupName"))
-    in
-    availability_zone, group_name_opt 
-  | _ ->
-    raise (Error ("DescribeInstancesResponse.reservationSet...placement"))
+let placement_of_xml kids = 
+  let availability_zone_opt = find_p_kid kids "availabilityZone" in
+  let group_name_opt = find_p_kid kids "groupName" in
+  availability_zone_opt, group_name_opt
 
 let instance_of_xml = function 
   | X.E("item",_,kids) ->
@@ -392,12 +397,16 @@ let instance_of_xml = function
     let state_x = find_kids_else_error kids "instanceState" in
     let private_dns_name_opt = fpo "privateDnsName" in
     let dns_name_opt = fpo "dnsName" in
-    let key_name = fp "keyName" in
+    let key_name_opt = fpo "keyName" in
     let ami_launch_index_s = fp "amiLaunchIndex" in
-    let instance_type = fp "instanceType" in
+    let instance_type = 
+      match instance_type_of_string (fp "instanceType") with 
+        | Some it -> it
+        | None -> raise (Error "instance_type")
+    in
     let launch_time_s = fp "launchTime" in
     let placement_x = find_kids_else_error kids "placement" in
-    let kernel_id = fpo "kernelId" in
+    let kernel_id_opt = fpo "kernelId" in
     let virtualization_type_opt = fpo "virtualizationType" in
     let private_ip_address_opt = fpo "privateIpAddress" in
     let ip_address_opt = fpo "ipAddress" in
@@ -426,7 +435,8 @@ let instance_of_xml = function
     let state = state_of_xml state_x in
     let ami_launch_index = int_of_string ami_launch_index_s in
     let launch_time = Util.unixfloat_of_amz_date_string launch_time_s in
-    let availability_zone, group_name_opt = placement_of_xml placement_x in
+    let placement_availability_zone_opt, placement_group_opt = 
+      placement_of_xml placement_x in
     (object 
       method id = id
       method image_id = image_id
@@ -434,13 +444,13 @@ let instance_of_xml = function
       method private_dns_name_opt = private_dns_name_opt
       method dns_name_opt = dns_name_opt
       method reason_opt = reason_opt
-      method key_name = key_name
+      method key_name_opt = key_name_opt
       method ami_launch_index = ami_launch_index
       method instance_type = instance_type
       method launch_time = launch_time
-      method availability_zone = availability_zone
-      method group_name_opt = group_name_opt
-      method kernel_id = kernel_id
+      method placement_availability_zone_opt = placement_availability_zone_opt
+      method placement_group_opt = placement_group_opt
+      method kernel_id_opt = kernel_id_opt
       method ramdisk_id_opt = ramdisk_id_opt
       method private_ip_address_opt = private_ip_address_opt
       method ip_address_opt = ip_address_opt
@@ -513,8 +523,9 @@ let augment_opt f x = function
 let run_instances 
     ?expires_minutes 
     ?key_name 
-    ?availability_zone
+    ?placement_availability_zone
     ?region
+    ?placement_group
     ?instance_type
     creds 
     ~image_id 
@@ -527,8 +538,11 @@ let run_instances
     "ImageId", image_id 
   ]
   in
-  let args = augment_opt 
-    (fun az -> "Placement.AvailabilityZone", az) args availability_zone in
+  let args = augment_opt (fun az -> "Placement.AvailabilityZone", az) 
+    args placement_availability_zone in
+  let args = augment_opt (fun pg -> "Placement.GroupName", pg) 
+    args placement_group in
+
   let args = augment_opt (fun kn -> "KeyName", kn) args key_name in
   let args = augment_opt (fun it -> "InstanceType", string_of_instance_type it) 
     args instance_type in
@@ -571,6 +585,7 @@ type spot_instance_request = {
   sir_monitoring_enabled : bool option;
   sir_key_name : string option;
   sir_availability_zone_group : string option;
+  sir_placement_group : string option;
 }  
 
 let minimal_spot_instance_request ~spot_price ~image_id = {
@@ -590,6 +605,7 @@ let minimal_spot_instance_request ~spot_price ~image_id = {
   sir_monitoring_enabled = None;
   sir_key_name = None;
   sir_availability_zone_group = None;
+  sir_placement_group = None
 }
   
 
@@ -614,6 +630,8 @@ let spot_instance_request_args sir =
   addid "LaunchSpecification.KernelId" sir.sir_kernel_id;
   addid "LaunchSpecification.RamdiskId" sir.sir_ramdisk_id;
   addid "LaunchSpecification.Placement.AvailabilityZone" sir.sir_availability_zone;
+  addid "LaunchSpecification.Placement.GroupName" sir.sir_placement_group; 
+  (* not documented! *)
   add "LaunchSpecification.Monitoring.Enabled" string_of_bool sir.sir_monitoring_enabled;
   addid "AvailabilityZoneGroup" sir.sir_availability_zone_group;
   !args
@@ -641,48 +659,56 @@ type spot_instance_request_description = <
   sir_type : spot_instance_request_type ; 
   spot_price : float;
   state : spot_instance_request_state;
-  image_id : string;
-  key_name : string;
-  groups : string list
+  image_id_opt : string option;
+  key_name_opt : string option;
+  groups : string list;
+  placement_group_opt : string option
 >
 
 let spot_instance_request_of_xml = function
   | X.E("item",_,kids) ->
-    let fp = find_p_kid_else_error kids in
-    let fpo = find_p_kid kids in
-    let sir_id = fp "spotInstanceRequestId" in
-    let spot_price = float_of_string (fp "spotPrice") in
-    let state = spot_instance_request_state_of_string (fp "state") in
-    let sir_type = spot_instance_request_type_of_string (fp "type") in
-    let instance_id_opt = fpo "instanceId" in
+      let fp = find_p_kid_else_error kids in
+      let fpo = find_p_kid kids in
+      let sir_id = fp "spotInstanceRequestId" in
+      let spot_price = float_of_string (fp "spotPrice") in
+      let state = spot_instance_request_state_of_string (fp "state") in
+      let sir_type = spot_instance_request_type_of_string (fp "type") in
+      let instance_id_opt = fpo "instanceId" in
 
-    let launch_specification_x = find_kids_else_error kids "launchSpecification" in
-    let fp = find_p_kid_else_error launch_specification_x in
-    let image_id = fp "imageId" in
-    let key_name = fp "keyName" in
-    let groups_x = find_kids_else_error launch_specification_x "groupSet" in
-    let groups = List.map group_of_xml groups_x in
+      let launch_specification_x = find_kids_else_error kids "launchSpecification" in
+      let fpo = find_p_kid launch_specification_x in
+      let image_id_opt = fpo "imageId" in
+      let key_name_opt = fpo "keyName" in
+      let groups_x = find_kids_else_error launch_specification_x "groupSet" in
+      let groups = List.map group_of_xml groups_x in
+      let placement_x_opt = find_kids launch_specification_x "placement" in
+      let placement_availability_zone_opt, placement_group_opt =
+        match placement_x_opt with
+          | None -> None, None
+          | Some placement_x ->
+              let availability_zone, placement_group_opt = placement_of_xml placement_x in
+              Some availability_zone, placement_group_opt
+      in
 
-    (object 
-      method id = sir_id
-      method spot_price = spot_price
-      method state = state
-      method sir_type = sir_type
-      method instance_id_opt = instance_id_opt
-      method image_id = image_id
-      method key_name = key_name
-      method groups = groups
-     end)
+      (object 
+         method id = sir_id
+         method spot_price = spot_price
+         method state = state
+         method sir_type = sir_type
+         method instance_id_opt = instance_id_opt
+         method image_id_opt = image_id_opt
+         method key_name_opt = key_name_opt
+         method groups = groups
+         method placement_group_opt = placement_group_opt
+       end)
   | _ ->
-    raise (Error "RequestSpotInstancesResponse.spotInstanceRequestSet.item")
+      raise (Error "RequestSpotInstancesResponse.spotInstanceRequestSet.item")
     
 let request_spot_instances_of_xml = function
-  | X.E("RequestSpotInstancesResponse",_,[
-    _; X.E("spotInstanceRequestSet",_,items)
-  ]) ->
-    List.map spot_instance_request_of_xml items
+  | X.E ("RequestSpotInstancesResponse",_,[ _; X.E("spotInstanceRequestSet",_,items) ]) -> 
+      List.map spot_instance_request_of_xml items
   | _ ->
-    raise (Error ("RequestSpotInstancesResponse"))
+      raise (Error ("RequestSpotInstancesResponse"))
 
 let request_spot_instances ?region creds spot_instance_request = 
   let args = spot_instance_request_args spot_instance_request in
@@ -692,7 +718,8 @@ let request_spot_instances ?region creds spot_instance_request =
   try_lwt 
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
-    return (`Ok (request_spot_instances_of_xml xml))
+    let rsp = request_spot_instances_of_xml xml in
+    return (`Ok rsp)
   with
     | HC.Http_error (_,_,body) ->
       return (error_msg body)
