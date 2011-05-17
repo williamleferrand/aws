@@ -43,6 +43,12 @@ let base64 str =
      newlines.  Unfortunately, [encode_compact] has neither. *)
   remove_newline encoded
 
+
+let base64_decoder str =
+  let b64_decoded = Cryptokit.Base64.decode () in 
+  let decoded = Cryptokit.transform_string b64_decoded str in
+  decoded 
+
 let colon_space (k, v) = k ^ ": " ^ v
 
 let encode_url s = Netencoding.Url.encode s

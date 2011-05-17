@@ -101,6 +101,35 @@ let create_queue_response_of_xml = function
   )
   | _ -> raise (Error "CreateQueueResponse")
 
+
+type message = 
+    { 
+      message_id : string ; 
+      receipt_handle : string ; 
+      body : string } 
+
+let message_of_xml encoded = function 
+  | X.E ("Message", 
+         _, 
+         X.E ("MessageId", _, [ X.P message_id ]) 
+         :: X.E ("ReceiptHandle", _, [ X.P receipt_handle ]) 
+         :: X.E ("MD5OfBody", _ , _) 
+         :: X.E ("Body", _, [ X.P body ]) :: attributes 
+  ) -> { message_id ; receipt_handle ; body = (if encoded then Util.base64_decoder body else body) } 
+    
+  | _ -> raise (Error "ReceiveMessageResult.message")
+
+let receive_message_response_of_xml ~encoded = function 
+  | X.E ("ReceiveMessageResponse",
+         _, 
+         [ 
+           X.E("ReceiveMessageResult",_ , items) ;
+           _ ;
+         ]) -> List.map (message_of_xml encoded) items 
+    
+ | _ -> raise (Error "ReceiveMessageResponse")
+
+
 (* create queue *)
 let create_queue ?(default_visibility_timeout=30) creds queue_name = 
   print_endline "creating queue" ; 
@@ -138,8 +167,8 @@ let list_queues ?prefix creds =
   with HC.Http_error (code, _, body) -> print "Error %d %s\n" code body ; return (error_msg body)
   
 (* get messages from a queue *)
-let receive_message ?(attribute_name="All") ?(max_number_of_messages=1) ?(visibility_timeout=30) creds ()  = 
-  let url, params = signed_request creds 
+let receive_message ?(attribute_name="All") ?(max_number_of_messages=1) ?(visibility_timeout=30) ?(encoded=true) creds queue_url = 
+  let url, params = signed_request creds ~http_uri:queue_url
     [
       "Action", "ReceiveMessage" ;
       "AttributeName", attribute_name ; 
@@ -148,6 +177,21 @@ let receive_message ?(attribute_name="All") ?(max_number_of_messages=1) ?(visibi
     ] in 
   try_lwt 
    lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-   print_endline body ; 
-   assert false 
+   let xml = X.xml_of_string body in
+   return (`Ok (receive_message_response_of_xml ~encoded xml))
+  with HC.Http_error (_, _, body) -> return (error_msg body)
+
+(* delete a message from a queue *)
+
+let delete_message creds queue_url receipt_handle = 
+  let url, params = signed_request creds ~http_uri:queue_url
+    [
+      "Action", "DeleteMessage" ;
+      "ReceiptHandle", receipt_handle 
+    ] in
+  try_lwt 
+   lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+   ignore (header) ;
+   ignore (body); 
+   return (`Ok ())
   with HC.Http_error (_, _, body) -> return (error_msg body)
