@@ -148,3 +148,6 @@ let file_contents path =
   Lwt.return contents
 
   
+(* Post encoding *)
+
+let encode_post_url = Netencoding.Url.mk_url_encoded_parameters 

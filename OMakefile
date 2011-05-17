@@ -5,7 +5,7 @@ OCAMLPACKS[] = \
   calendar \
   cohttp \
   lwt.syntax \
-  xmlm 
+  xmlm lwt
 
 
 NATIVE_ENABLED = true
@@ -14,13 +14,16 @@ BYTE_ENABLED = true
 OCAMLFLAGS  += -dtypes 
 OCAMLFINDFLAGS += -syntax camlp4o
 
-FILES[] = s3 eC2 http_method aws_util creds xml
+FILES[] = s3 eC2 sQS http_method aws_util creds xml
 
 LIB = aws
 OCAML_LIBS[] = $(LIB)
 
 ec2sh: ec2sh.ml $(LIB).cma
   $(OCAMLFIND) ocamlmktop $(OCAMLFLAGS) -package $(string $(OCAMLPACKS)) $(LIB).cma ec2sh.ml -o ec2sh -linkpkg
+
+sqstest: keys.ml sqstest.ml $(LIB).cma
+  $(OCAMLFIND) ocamlc -package $(string $(OCAMLPACKS)) $^ -o $@ -linkpkg 
 
 .DEFAULT: $(OCamlLibrary $(LIB), $(FILES)) \
   $(OCamlProgram s3c, s3c) ec2sh
