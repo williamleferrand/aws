@@ -251,7 +251,6 @@ let auth_hdr
     buf#add canonicalized_resource;
     buf#contents
   in
-  print_endline string_to_sign ; 
   let signature = sign creds.Creds.aws_secret_access_key string_to_sign in
   "Authorization", sprintf "AWS %s:%s" creds.Creds.aws_access_key_id signature
 
@@ -269,7 +268,7 @@ let find_element kids key =
     None
 
 let error_msg body =
-  print_endline body; 
+  
   (* <Error><Code>SomeMessage</Code>...</Error> *)
   try
     match X.xml_of_string body with
@@ -365,13 +364,13 @@ let get_object_h creds_opt region ~bucket ~objekt  =
 (* get object *)
 let get_object_s creds_opt region ~bucket ~objekt =
   let headers, request_url = get_object_h creds_opt region ~bucket ~objekt  in
-  print_endline request_url; 
+  
   try_lwt
     lwt _, body = HC.get ~headers request_url in
     return (`Ok body)
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
-    | HC.Http_error (301, _, body) -> print_endline body ; permanent_redirect_of_string body
+    | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_, _, body) -> error_msg body
 
 let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
