@@ -129,6 +129,20 @@ let receive_message_response_of_xml ~encoded = function
     
  | _ -> raise (Error "ReceiveMessageResponse")
 
+let send_message_response_of_xml = function 
+  | X.E ("SendMessageResponse",
+         _, 
+         [ 
+           X.E("SendMessageResult",_ , 
+           [
+             X.E ("MD5OfMessageBody", _, _) ; 
+             X.E ("MessageId", _, [ X.P message_id ]) 
+           ]) ;
+           _ ;
+         ]) -> message_id
+    
+ | _ -> raise (Error "SendMessageResponse")
+
 
 (* create queue *)
 let create_queue ?(default_visibility_timeout=30) creds queue_name = 
@@ -179,7 +193,7 @@ let receive_message ?(attribute_name="All") ?(max_number_of_messages=1) ?(visibi
    lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
    let xml = X.xml_of_string body in
    return (`Ok (receive_message_response_of_xml ~encoded xml))
-  with HC.Http_error (_, _, body) -> return (error_msg body)
+  with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
 
 (* delete a message from a queue *)
 
@@ -195,3 +209,18 @@ let delete_message creds queue_url receipt_handle =
    ignore (body); 
    return (`Ok ())
   with HC.Http_error (_, _, body) -> return (error_msg body)
+
+(* send a message to a queue *)
+
+let send_message creds queue_url body = 
+  let url, params = signed_request creds ~http_uri:queue_url 
+    [
+      "Action", "SendMessage" ; 
+      "MessageBody", body  
+    ] in 
+  try_lwt 
+   lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+   let xml = X.xml_of_string body in
+   return (`Ok (send_message_response_of_xml xml))
+  with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+
