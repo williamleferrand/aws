@@ -212,11 +212,11 @@ let delete_message creds queue_url receipt_handle =
 
 (* send a message to a queue *)
 
-let send_message creds queue_url body = 
+let send_message creds queue_url ?(encoded=true) body = 
   let url, params = signed_request creds ~http_uri:queue_url 
     [
       "Action", "SendMessage" ; 
-      "MessageBody", body  
+      "MessageBody", (if encoded then Util.base64 body else body)  
     ] in 
   try_lwt 
    lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
