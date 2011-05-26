@@ -76,7 +76,7 @@ val get_object_s :
   region ->
   bucket:string ->
   objekt:string -> 
-  [> `NotFound | `Error of string | `Ok of string | `PermanentRedirect of region option ] Lwt.t
+  [> `NotFound | `Error of string | `Ok of string | `AccessDenied | `PermanentRedirect of region option ] Lwt.t
 
 val get_object :
   ?byte_range: (int * int) ->
@@ -85,7 +85,7 @@ val get_object :
   bucket:string ->
   objekt:string ->
   path:string ->
-  [> `Error of string | `NotFound | `Ok | `PermanentRedirect of region option ] Lwt.t
+  [> `Error of string | `NotFound | `Ok | `AccessDenied | `PermanentRedirect of region option ] Lwt.t
 
 val put_object : 
   ?content_type:string ->
@@ -95,7 +95,7 @@ val put_object :
   bucket:string ->
   objekt:string -> 
   body:[ `File of string | `String of string ] ->
-  [> `Error of string | `Ok | `PermanentRedirect of region option ] Lwt.t
+  [> `Error of string | `Ok | `AccessDenied | `PermanentRedirect of region option ] Lwt.t
 
 val get_object_metadata :
   Creds.t ->

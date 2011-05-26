@@ -371,7 +371,11 @@ let get_object_s creds_opt region ~bucket ~objekt =
   with 
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
-    | HC.Http_error (_, _, body) -> error_msg body
+    | HC.Http_error (_, _, body) -> (
+        error_msg body >>= function
+          | `Error "AccessDenied" -> return `AccessDenied
+          | `Error _ as err -> return err
+      )
 
 let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
   let headers, request_url = get_object_h creds_opt region ~bucket ~objekt in
@@ -402,7 +406,9 @@ let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
       | HC.Http_error (_, _,_) -> 
         lwt () = close_no_err () in
         lwt body = Util.file_contents path in
-        error_msg body
+        error_msg body >>= function
+          | `Error "AccessDenied" -> return `AccessDenied
+          | `Error _ as err -> return err
   in
   lwt () = close_no_err () in
   return res
@@ -537,8 +543,12 @@ let put_object
     lwt () = close () in
     match exn with
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
-    | HC.Http_error (_, _, body)   -> error_msg body
-    | _                            -> fail exn
+    | HC.Http_error (_, _, body) -> (
+        error_msg body >>= function
+          | `Error "AccessDenied" -> return `AccessDenied
+          | `Error _ as err -> return err
+      )
+    | _ -> fail exn
 
 
 (* get object metadata *)
