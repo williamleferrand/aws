@@ -346,7 +346,7 @@ let grant_object_permission creds region ~bucket ~objekt
   in
 
   (* get the acl *)
-  lwt result = S3.get_bucket_acl creds region bucket in
+  lwt result = S3.get_object_acl creds region bucket objekt in
   lwt exit_code = 
     match result with
       | `Ok acl -> (
