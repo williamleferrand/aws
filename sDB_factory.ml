@@ -93,9 +93,26 @@ struct
              _ ]) -> List.map domain_of_xml domains
     | _ -> raise (Error "ListDomainsResult")
     
+  let attributes_of_xml encoded = function 
+    | X.E ("Attribute", _, 
+           [
+             X.E ("Name", _, [ X.P name ]); 
+             X.E ("Value", _, [ X.P value ]); 
+           ]) -> ((if encoded then Util.base64_decoder name else name),  
+                  (if encoded then Util.base64_decoder value else value))
 
-  (* list all domains *)
-      
+    | _ -> raise (Error "Attribute")
+
+  let get_attributes_response_of_xml encoded = function 
+    | X.E ("GetAttributesResponse", _, 
+           [ 
+             X.E ("GetAttributesResult", _, attributes); 
+             _; 
+           ]) -> List.map (attributes_of_xml encoded) attributes
+    | _ -> raise (Error "GetAttributesResponse") 
+
+(* list all domains *)
+
   let list_domains creds ?token () = 
     let url, params = signed_request creds 
       (("Action", "ListDomains")
@@ -104,12 +121,98 @@ struct
          | Some t -> [ "NextToken", t ]) in
     
     try_lwt 
-  lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-  print_endline body ;
-  let xml = X.xml_of_string body in
-  return (`Ok (list_domains_response_of_xml xml))
-  with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       let xml = X.xml_of_string body in
+       return (`Ok (list_domains_response_of_xml xml))
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
 
+(* create domain *)
 
+  let create_domain creds name = 
+    let url, params = signed_request creds
+      [
+        "Action", "CreateDomain" ; 
+        "DomainName", name
+      ] in
+    
+    try_lwt 
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       return `Ok
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
 
+    
+(* delete domain *)
+
+  let delete_domain creds name = 
+    let url, params = signed_request creds
+      [
+        "Action", "DeleteDomain" ; 
+        "DomainName", name
+      ] in
+    
+    try_lwt 
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       return `Ok
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+
+(* put attributes *)
+  
+  let put_attributes ?(encode=true) creds domain item attrs = 
+    let attrs' = 
+      List.fold_left 
+        (fun acc (i, name, value) -> 
+          (sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
+          :: (sprint "Attribute.%d.Value" i, (if encode then Util.base64 value else value))
+          :: acc) [] attrs in
+    let url, params = signed_request creds
+      (("Action", "PutAttributes") 
+       :: ("DomainName", domain)
+       :: ("ItemName", (if encode then Util.base64 item else item))
+       :: attrs') in 
+    try_lwt 
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       return `Ok
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+
+(* get attributes *)
+
+  let get_attributes ?(encoded=true) creds domain ?attribute item = 
+    let url, params = signed_request creds
+      (("Action", "GetAttributes") 
+       :: ("DomainName", domain)
+       :: ("ItemName", (if encoded then Util.base64 item else item))
+       :: (match attribute with 
+         | None -> [] 
+         | Some attribute_name -> [ "AttributeName", (if encoded then Util.base64 attribute_name else attribute_name) ])) in 
+    try_lwt 
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       let xml = X.xml_of_string body in
+       return (`Ok (get_attributes_response_of_xml encoded xml))
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+ 
+(* delete attributes *)
+
+  let delete_attributes ?(encode=true) creds domain item attrs = 
+    let attrs' = 
+      List.fold_left 
+        (fun acc (i, name, value) -> 
+          (sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
+          :: (sprint "Attribute.%d.Value" i, (if encode then Util.base64 value else value))
+          :: acc) [] attrs in
+    let url, params = signed_request creds
+      (("Action", "DeleteAttributes") 
+       :: ("DomainName", domain)
+       :: ("ItemName", (if encode then Util.base64 item else item))
+       :: attrs') in 
+    try_lwt 
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       return `Ok
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+ 
 end
