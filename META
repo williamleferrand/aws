@@ -1,5 +1,21 @@
 version = "0.0.1"
 description = "Client library for aws"
-requires = "Lwt Xmlm Cohttp Calendar Cryptokit Pcre Netstring"
-archive(byte) = "aws.cmo"
-archive(native) = "aws.cmx"
+requires = "Lwt Xmlm Calendar Cryptokit Pcre Netstring"
+
+package "cohttp" (
+ version = "0.0.1"
+ description = "Cohttp"
+ requires = "aws"
+ archive(byte) = "aws.cmo"
+ archive(native) = "aws.cmx"
+ exists_if = "aws.cmx"
+)
+
+package "ocsigen" (
+ version = "0.0.1"
+ description = "Client Cohttp library using ocsigen_http_client"
+ requires = "aws"
+ archive(byte) = "aws-ocsigen.cmo"
+ archive(native) = "aws-ocsigen.cmx"
+ exists_if = "aws-ocsigen.cmo"
+)

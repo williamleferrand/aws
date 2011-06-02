@@ -2,7 +2,9 @@
 
 # Cohttp edition
 
-all: ocsigen
+default: cohttp
+
+all: cohttp ocsigen
 
 cohttp: aws.byte aws.native
 
@@ -14,20 +16,36 @@ aws.byte:
 aws.native:
 	ocamlbuild -tag 'for-pack(Aws)' aws.cmx
 
-install:
-	ocamlfind install aws META _build/aws.cm*
-
-remove: 
-	ocamlfind remove aws
-
 # Ocsigen edition
 
 aws-ocsigen.byte:
 	ocamlbuild -tags 'for-pack(Aws_ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmo
 
+aws-ocsigen.native:
+	ocamlbuild -tags 'for-pack(Aws_ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmx
+
+# Install
+
+install-all:
+	ocamlfind install aws META _build/aws.cm* _build/aws-ocsigen.cm*
+
+install-cohttp:
+	ocamlfind install aws META _build/aws.cm*
+
+install-ocsigen:
+	ocamlfind install aws META _build/aws-ocsigen.cm*
+
+install: install-all
+
+# Command line tool
 
 s3c: 
 	ocamlbuild s3c.native
+
+# Cleaning 
+
+remove: 
+	ocamlfind remove aws
 
 clean:
 	find . |grep '~' |xargs rm -rf
