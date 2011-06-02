@@ -1,3 +1,3 @@
-module M = SQS_functor.Make (Cohttp.Http_client)
+module M = SQS_factory.Make (Cohttp.Http_client)
 
 include M
