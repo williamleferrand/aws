@@ -2,6 +2,7 @@ Aws_util
 Sigs 
 Http_method
 Creds
+Xml
 
 EC2_factory
 EC2 
