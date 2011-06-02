@@ -8,7 +8,7 @@ all: cohttp ocsigen
 
 cohttp: aws.byte aws.native
 
-ocsigen: aws-ocsigen.byte
+ocsigen: aws-ocsigen.byte aws-ocsigen.native
 
 aws.byte:
 	ocamlbuild -tag 'for-pack(Aws)' aws.cmo
@@ -19,10 +19,10 @@ aws.native:
 # Ocsigen edition
 
 aws-ocsigen.byte:
-	ocamlbuild -tags 'for-pack(Aws_ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmo
+	ocamlbuild -tags 'for-pack(Aws-ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmo
 
 aws-ocsigen.native:
-	ocamlbuild -tags 'for-pack(Aws_ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmx
+	ocamlbuild -tags 'for-pack(Aws-ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmx
 
 # Install
 
