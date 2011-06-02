@@ -12,3 +12,6 @@ SQS
 
 S3_factory
 S3
+
+SDB_factory
+SDB

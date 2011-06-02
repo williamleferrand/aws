@@ -1,1 +1,1 @@
-<*.ml>: syntax_camlp4o, pkg_lwt.syntax, pkg_lwt, pkg_pcre, pkg_cryptokit, pkg_netstring, pkg_calendar, pkg_xmlm, pkg_cohttp
+<*>: syntax_camlp4o, pkg_lwt.syntax, pkg_lwt, pkg_pcre, pkg_cryptokit, pkg_netstring, pkg_calendar, pkg_xmlm, pkg_cohttp

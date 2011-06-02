@@ -27,13 +27,13 @@ aws-ocsigen.native:
 # Install
 
 install-all:
-	ocamlfind install aws META _build/aws.cm* _build/aws-ocsigen.cm*
+	ocamlfind install aws META _build/*.cmi _build/aws.cm* _build/aws-ocsigen.cm*
 
 install-cohttp:
-	ocamlfind install aws META _build/aws.cm*
+	ocamlfind install aws META _build/*.cmi _build/aws.cm*
 
 install-ocsigen:
-	ocamlfind install aws META _build/aws-ocsigen.cm*
+	ocamlfind install aws META _build/*.cmi _build/aws-ocsigen.cm*
 
 install: install-all
 
@@ -43,6 +43,11 @@ reinstall: remove install
 
 s3c: 
 	ocamlbuild s3c.native
+
+# Misc tests
+
+sdbtest.byte:
+	ocamlbuild sdbtest.byte
 
 # Cleaning 
 

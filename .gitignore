@@ -3,6 +3,7 @@ keys.ml
 *.cm*
 *.annot
 _build*
-sqstest
+sqstest.byte
 .#*
 *#
+sdbtest.byte

@@ -30,6 +30,7 @@
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *)
 
+(* Miscellaneous *****************************************************************)
 
 let remove_newline = 
   Pcre.replace ~rex:(Pcre.regexp "\n") ~templ:""
@@ -58,7 +59,6 @@ let encode_key_equals_value kvs =
     fun (k,v) -> 
       (encode_url k) ^ "=" ^ (encode_url v)
   ) kvs
-
 
 let file_size path =
   let s = Unix.stat path in
@@ -154,6 +154,6 @@ let file_contents path =
   Lwt.return contents
 
   
-(* Post encoding *)
+(* Post encoding *****************************************************************)
 
 let encode_post_url = Netencoding.Url.mk_url_encoded_parameters 
