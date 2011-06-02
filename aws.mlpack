@@ -1,4 +1,13 @@
+Aws_util
 Sigs 
+Http_method
+Creds
 
 EC2_factory
 EC2 
+
+SQS_factory
+SQS
+
+S3_factory
+S3
