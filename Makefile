@@ -23,7 +23,7 @@ remove:
 # Ocsigen edition
 
 aws-ocsigen.byte:
-	ocamlbuild -tag 'for-pack(Aws-ocsigen)' aws-ocsigen.cmo
+	ocamlbuild -tags 'for-pack(Aws_ocsigen), pkg_threads, pkg_ocsigenserver' aws-ocsigen.cmo
 
 
 s3c: 
