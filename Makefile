@@ -37,6 +37,8 @@ install-ocsigen:
 
 install: install-all
 
+reinstall: remove install
+
 # Command line tool
 
 s3c: 
@@ -50,3 +52,4 @@ remove:
 clean:
 	find . |grep '~' |xargs rm -rf
 	ocamlbuild -clean
+
