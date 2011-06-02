@@ -4,5 +4,13 @@ Http_method
 Creds
 Xml
 
+Ocsigen_HC
+
 EC2_factory
 EC2_ocsigen
+
+SQS_factory
+SQS_ocsigen
+
+S3_factory
+S3_ocsigen
