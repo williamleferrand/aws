@@ -191,6 +191,7 @@ let receive_message ?(attribute_name="All") ?(max_number_of_messages=1) ?(visibi
     ] in 
   try_lwt 
    lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+   print_endline body ;
    let xml = X.xml_of_string body in
    return (`Ok (receive_message_response_of_xml ~encoded xml))
   with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
@@ -224,4 +225,3 @@ let send_message creds queue_url ?(encoded=true) body =
    let xml = X.xml_of_string body in
    return (`Ok (send_message_response_of_xml xml))
   with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
-
