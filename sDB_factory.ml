@@ -25,6 +25,7 @@ struct
       ?(http_method=`POST) 
       ?(http_uri="/")
       ?expires_minutes
+      ?(safe=false)
       creds 
       params = 
     
@@ -50,7 +51,7 @@ struct
     
     let signature = 
       let sorted_params = Util.sort_assoc_list params in
-      let key_equals_value = Util.encode_key_equals_value sorted_params in
+      let key_equals_value = Util.encode_key_equals_value ~safe sorted_params in
       let uri_query_component = String.concat "&" key_equals_value in
       let string_to_sign = String.concat "\n" [ 
         string_of_http_method http_method ;
@@ -59,6 +60,7 @@ struct
         uri_query_component 
       ]
       in 
+      print_endline string_to_sign ;
       let hmac_sha1_encoder = Cryptokit.MAC.hmac_sha1 creds.aws_secret_access_key in
       let signed_string = Cryptokit.hash_string hmac_sha1_encoder string_to_sign in
       Util.base64 signed_string 
@@ -110,6 +112,9 @@ struct
              _; 
            ]) -> List.map (attributes_of_xml encoded) attributes
     | _ -> raise (Error "GetAttributesResponse") 
+
+  let select_of_xml encoded _ = 
+    failwith "not implemented" 
 
 (* list all domains *)
 
@@ -213,6 +218,25 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        print_endline body ;
        return `Ok
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+ 
+(* select *)
+
+  let select ?(consistent=false) ?(encoded=true) ?token creds expression =
+    let url, params = signed_request ~safe:true creds
+      (("Action", "Select") 
+       :: ("SelectExpression", expression)
+       :: ("ConsistentRead", sprint "%B" consistent)
+       :: (match token with 
+         | None -> []
+         | Some t -> [ "NextToken", t ])) in 
+    try_lwt 
+  let key_equals_value = Util.encode_key_equals_value ~safe:true params in
+  let uri_query_component = String.concat "&" key_equals_value in
+       lwt header, body = HC.post ~body:(`String uri_query_component) url in
+       print_endline body ;
+       let xml = X.xml_of_string body in
+       return (`Ok (select_of_xml encoded xml))
     with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
  
 end

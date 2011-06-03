@@ -33,5 +33,12 @@ let get_attributes domain item =
         | `Ok l -> List.iter (fun (n, v) -> Printf.printf "%s -> %s\n" n v) l; return ()
        | `Error msg -> Printf.printf "Panic: %s\n" msg; return ())
 
+let select expr = 
+  Lwt_main.run 
+    (SDB.select ~encoded:false creds expr
+     >>= function 
+       | `Ok l -> return () 
+       | `Error msg -> Printf.printf "Panic: %s\n" msg; return ())
+    
 let _ = 
-  get_attributes Sys.argv.(1) Sys.argv.(2)
+  select Sys.argv.(1)
