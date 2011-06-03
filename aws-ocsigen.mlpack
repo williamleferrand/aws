@@ -14,3 +14,6 @@ SQS_ocsigen
 
 S3_factory
 S3_ocsigen
+
+SDB_factory
+SDB_ocsigen

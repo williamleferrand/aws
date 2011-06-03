@@ -113,8 +113,41 @@ struct
            ]) -> List.map (attributes_of_xml encoded) attributes
     | _ -> raise (Error "GetAttributesResponse") 
 
-  let select_of_xml encoded _ = 
-    failwith "not implemented" 
+
+  let attrs_of_xml encoded = function 
+    | X.E ("Attribute", _ , 
+           [
+             X.E ("Name", _, [ X.P name ]); 
+             X.E ("Value", _, [ X.P value ])
+           ]) -> (if encoded then Util.base64_decoder name else name), (if encoded then Util.base64_decoder value else value)  
+    | _ -> raise (Error "Attribute")
+
+let attrs_of_xml encoded = function 
+  | X.E ("Attribute", _ , 
+         [
+           X.E ("Name", _, [ X.P name ]) ;
+           X.E ("Value", _, [ X.P value ]) ;
+         ]) -> name, (Some value)
+  | X.E ("Attribute", _ , 
+         [
+           X.E ("Name", _, [ X.P name ]) ;
+           _
+         ]) -> name, None  
+  | _ -> raise (Error "Attribute")
+
+  let item_of_xml encoded = function 
+    | X.E ("Item", _, 
+           (X.E ("Name", _, [ X.P name ]) :: attrs)) -> (if encoded then Util.base64_decoder name else name), (List.map (attrs_of_xml encoded) attrs)
+
+    | _ -> raise (Error "Item")
+
+  let select_of_xml encoded = function 
+    | X.E ("SelectResponse", _,
+           [
+             X.E ("SelectResult", _, items); 
+             _ ;
+           ]) -> List.map (item_of_xml encoded) items
+    | _ -> raise (Error "SelectResponse")
 
 (* list all domains *)
 
@@ -147,7 +180,6 @@ struct
        return `Ok
     with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
 
-    
 (* delete domain *)
 
   let delete_domain creds name = 
@@ -165,13 +197,15 @@ struct
 
 (* put attributes *)
   
-  let put_attributes ?(encode=true) creds domain item attrs = 
-    let attrs' = 
+  let put_attributes ?(replace=false) ?(encode=true) creds domain item attrs = 
+    let _, attrs' = 
       List.fold_left 
-        (fun acc (i, name, value) -> 
-          (sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
+        (fun (i, acc) (name, value) -> 
+          (i+1), ((sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
           :: (sprint "Attribute.%d.Value" i, (if encode then Util.base64 value else value))
-          :: acc) [] attrs in
+          :: (if replace then 
+               (sprint "Attribute.%d.Replace" i, "true") :: acc 
+            else acc))) (1, []) attrs in
     let url, params = signed_request creds
       (("Action", "PutAttributes") 
        :: ("DomainName", domain)
@@ -222,7 +256,7 @@ struct
  
 (* select *)
 
-  let select ?(consistent=false) ?(encoded=true) ?token creds expression =
+  let select ?(consistent=false) ?(encoded=true) ?(token=None) creds expression =
     let url, params = signed_request ~safe:true creds
       (("Action", "Select") 
        :: ("SelectExpression", expression)

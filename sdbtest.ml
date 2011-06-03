@@ -37,7 +37,11 @@ let select expr =
   Lwt_main.run 
     (SDB.select ~encoded:false creds expr
      >>= function 
-       | `Ok l -> return () 
+       | `Ok l ->
+         List.iter (fun (name, attrs) -> 
+           print_endline name ;
+           List.iter (fun (name, value) -> Printf.printf "   %s -> %s\n" name (match value with Some s -> s | None -> "none")) attrs) l; 
+         return () 
        | `Error msg -> Printf.printf "Panic: %s\n" msg; return ())
     
 let _ = 
