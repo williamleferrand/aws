@@ -47,7 +47,7 @@ s3c:
 # Misc tests
 
 sdbtest.byte:
-	ocamlbuild sdbtest.byte
+	ocamlbuild test/sdbtest.byte
 
 # Cleaning 
 

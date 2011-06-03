@@ -82,9 +82,9 @@ let _ = dispatch begin function
        flag ["ocaml"; "pkg_threads"; "link"] (S[A "-thread"]);
        flag ["ocaml"; "pkg_threads"; "infer_interface"] (S[A "-thread"]) ;
        
-(*
-       Pathname.define_context "shared" [ "ext/lib" ]; 
-       Pathname.define_context "api" [ "ext/lib"; "shared" ];
+
+       Pathname.define_context "test" [ "lib" ]; 
+(*       Pathname.define_context "api" [ "ext/lib"; "shared" ];
        Pathname.define_context "node" [ "shared"; "api" ]; 
        Pathname.define_context "plugins" [ "shared"; "api"; "node" ]; 
        Pathname.define_context "frontend" [ "shared"; "api" ]; 
