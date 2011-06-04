@@ -1,37 +1,5 @@
 (** command-line client to Amazon's S3 *)
 
-(* Copyright (c) 2010, barko 00336ea19fcb53de187740c490f764f4 All
-   rights reserved.
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are
-   met:
-   
-   1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the
-   distribution.
-
-   3. Neither the name of barko nor the names of contributors may be used
-   to endorse or promote products derived from this software without
-   specific prior written permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*)
-
 open Lwt
 open Creds
 open Printf
@@ -432,6 +400,30 @@ let revoke_object_permission creds region ~bucket ~objekt
   in
   return exit_code
 
+let get_bucket_policy creds region ~bucket () =
+  S3.get_bucket_policy creds region ~bucket >>= function
+    | `Ok policy -> print_endline policy; return 1
+    | `AccessDenied -> print_endline "access denied"; return 0
+    | `NotFound -> print_endline "not found"; return 0
+    | `NotOwner -> print_endline "not owner"; return 0
+    | `Error msg -> print_endline msg; return 0
+
+let delete_bucket_policy creds region ~bucket () =
+  S3.delete_bucket_policy creds region ~bucket >>= function
+    | `Ok -> print_endline "ok"; return 1
+    | `AccessDenied -> print_endline "access denied"; return 0
+    | `NotOwner -> print_endline "not owner"; return 0
+    | `Error msg -> print_endline msg; return 0
+
+
+let set_bucket_policy creds region ~bucket ~policy () =
+  S3.set_bucket_policy creds region ~bucket ~policy >>= function
+    | `Ok -> print_endline "ok"; return 1
+    | `AccessDenied -> print_endline "access denied"; return 0
+    | `MalformedPolicy -> print_endline "malformed policy"; return 0
+    | `Error msg -> print_endline msg; return 0
+
+
 let _ = 
   let creds = 
     try 
@@ -514,6 +506,14 @@ let _ =
           ~grantee_aws_id ~grantee_aws_display_name 
           ~permission
 
+      | [| _; "get-bucket-policy"; region; bucket |] ->
+          get_bucket_policy creds (S3.region_of_string region) ~bucket
+
+      | [| _; "delete-bucket-policy"; region; bucket |] ->
+          delete_bucket_policy creds (S3.region_of_string region) ~bucket
+
+      | [| _; "set-bucket-policy"; region; bucket; policy |] ->
+          set_bucket_policy creds (S3.region_of_string region) ~bucket ~policy
 
       | _ -> 
         print_endline "unknown command" ; exit 1
@@ -521,3 +521,36 @@ let _ =
   in
   let exit_code = Lwt_unix.run (command ()) in
   exit exit_code
+
+(* Copyright (c) 2011, barko 00336ea19fcb53de187740c490f764f4 All
+   rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+   
+   1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+   3. Neither the name of barko nor the names of contributors may be used
+   to endorse or promote products derived from this software without
+   specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*)
+

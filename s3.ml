@@ -1,35 +1,3 @@
-(* Copyright (c) 2010, barko 00336ea19fcb53de187740c490f764f4 All
-   rights reserved.
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are
-   met:
-   
-   1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the
-   distribution.
-
-   3. Neither the name of barko nor the names of contributors may be used
-   to endorse or promote products derived from this software without
-   specific prior written permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*)
-
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 module K = Cryptokit
@@ -828,6 +796,7 @@ let xml_of_access_control_policy acl =
   X.E ("AccessControlPolicy", [], kids)
 
 let xml_content_type_header = "Content-Type", "application/xml"
+let json_content_type_header = "Content-Type", "application/json"
 
 let set_bucket_acl creds region bucket acl  =
   let date = now_as_string () in
@@ -926,3 +895,105 @@ let set_object_acl creds region ~bucket ~objekt acl  =
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _ ,body) -> error_msg body
+
+let get_bucket_policy creds region ~bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`GET
+    ~date 
+    ~bucket 
+    ~sub_resources:[`policy, None] 
+    creds
+  in
+  let request_url = sprintf "%s%s?%s" (service_url_of_region region)
+    (Util.encode_url bucket) (string_of_sub_resource `policy) 
+  in  
+  let headers = [ "Date", date ; authorization_header ] in
+  try_lwt
+    lwt _, response_body = HC.get ~headers request_url in
+    return (`Ok response_body)
+  with 
+    | HC.Http_error (403, _, _   ) -> return `AccessDenied
+    | HC.Http_error (405, _, body) -> return `NotOwner
+    | HC.Http_error (404, _, body) -> return `NotFound
+    | HC.Http_error (_  , _ ,body) -> error_msg body
+
+let delete_bucket_policy creds region ~bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`DELETE
+    ~date 
+    ~bucket 
+    ~sub_resources:[`policy, None] 
+    creds
+  in
+  let request_url = sprintf "%s%s?%s" (service_url_of_region region)
+    (Util.encode_url bucket) (string_of_sub_resource `policy) 
+  in  
+  let headers = [ "Date", date ; authorization_header ] in
+  try_lwt
+    HC.delete ~headers request_url >> return `Ok
+  with 
+    | HC.Http_error (204, _, _) -> return `Ok
+
+    | HC.Http_error (403, _, _   ) -> return `AccessDenied
+    | HC.Http_error (405, _, body) -> return `NotOwner
+    | HC.Http_error (_  , _ ,body) -> error_msg body
+
+let set_bucket_policy creds region ~bucket ~policy =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`PUT
+    ~date 
+    ~bucket 
+    ~sub_resources:[`policy, None] 
+    ~content_type:(snd json_content_type_header)
+    creds
+  in
+  let request_url = sprintf "%s%s?%s" (service_url_of_region region)
+    (Util.encode_url bucket) (string_of_sub_resource `policy) 
+  in  
+  let headers = [ "Date", date ; json_content_type_header; authorization_header ] in
+  let body = `String policy in
+  try_lwt
+    lwt _ = HC.put ~headers ~body request_url in
+    return `Ok
+  with 
+    | HC.Http_error (204, _, _) -> return `Ok
+    | HC.Http_error (403, _, _   ) -> return `AccessDenied
+    | HC.Http_error (400, _, _) -> return `MalformedPolicy
+    | HC.Http_error (_  , _ ,body) -> error_msg body
+
+
+(* Copyright (c) 2011, barko 00336ea19fcb53de187740c490f764f4 All
+   rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+   
+   1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+   3. Neither the name of barko nor the names of contributors may be used
+   to endorse or promote products derived from this software without
+   specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*)
+
