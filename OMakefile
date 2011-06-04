@@ -5,7 +5,9 @@ OCAMLPACKS[] = \
   calendar \
   cohttp \
   lwt.syntax \
-  xmlm lwt
+  xmlm \
+  lwt \
+  atdgen
 
 
 NATIVE_ENABLED = true
@@ -14,7 +16,10 @@ BYTE_ENABLED = true
 OCAMLFLAGS  += -dtypes 
 OCAMLFINDFLAGS += -syntax camlp4o
 
-FILES[] = s3 eC2 sQS http_method aws_util creds xml
+%.ml %.mli: %.atd
+        atdgen -std-json $*.atd
+
+FILES[] = s3 eC2 sQS http_method aws_util creds xml policy
 
 LIB = aws
 OCAML_LIBS[] = $(LIB)
