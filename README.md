@@ -10,6 +10,6 @@ Aws depends directly on the following packages:
 -  lwt
 -  [xmlm](http://github.com/samoht/xmlm)
 -  [cohttp](http://github.com/avsm/ocaml-cohttp)
--  [atdgen](http://github.com/MyLifeLabs/atdgen)
+-  yojson 
 
 All of the packages except the last two are available via GODI.  

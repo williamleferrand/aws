@@ -7,7 +7,7 @@ OCAMLPACKS[] = \
   lwt.syntax \
   xmlm \
   lwt \
-  atdgen
+  yojson
 
 
 NATIVE_ENABLED = true
@@ -15,9 +15,6 @@ BYTE_ENABLED = true
 
 OCAMLFLAGS  += -dtypes 
 OCAMLFINDFLAGS += -syntax camlp4o
-
-%.ml %.mli: %.atd
-        atdgen -std-json $*.atd
 
 FILES[] = s3 eC2 sQS http_method aws_util creds xml policy
 
