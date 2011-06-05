@@ -136,15 +136,3 @@ and string_of_s3_resource resource =
 and string_of_account_id account_id =
   "arn:aws:iam::" ^ account_id ^ ":root"
 
-let p = {
-  policy_id = "xyz";
-  statements = [
-    {
-      statement_id = "123";
-      effect = `Allow;
-      principals = `AWS ["915365480797"];
-      actions = [`DeleteObject; `GetObject];
-      resources = ["test-edog/*"; "test-edog/a"; "test-edog/asdf"]
-    }
-  ]
-}
