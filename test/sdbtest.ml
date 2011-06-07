@@ -45,4 +45,8 @@ let select expr =
        | `Error msg -> Printf.printf "Panic: %s\n" msg; return ())
     
 let _ = 
-  select Sys.argv.(1)
+  list_domains () ; 
+  let domain = Sys.argv.(1) in 
+  delete_domain domain ; 
+  create_domain domain
+  

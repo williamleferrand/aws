@@ -1,6 +1,6 @@
 version = "0.0.1"
 description = "Client library for aws"
-requires = "Lwt Xmlm Calendar Cryptokit Pcre Netstring"
+requires = "lwt xmlm calendar cryptokit pcre netstring"
 
 package "cohttp" (
  version = "0.0.1"
