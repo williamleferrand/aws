@@ -217,6 +217,34 @@ let attrs_of_xml encoded = function
        return `Ok
     with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
 
+(* batch put attributes *)
+      
+  let batch_put_attributes ?(replace=false) ?(encode=true) creds domain items =
+    let _, attrs' = 
+      List.fold_left 
+        (fun (i, acc) (name, attrs) -> 
+          let _, acc = (List.fold_left 
+                          (fun (j, acc) (name, value) -> 
+                            (j+1), ((sprint "Item.%d.Attribute.%d.Name" i j,  (if encode then Util.base64 name else name))
+                                    :: (sprint "Item.%d.Attribute.%d.Value" i j, (if encode then Util.base64 value else value))
+                                    :: (if replace then (sprint "Item.%d.Attribute.%d.Replace" i j, "true") :: acc else acc)
+                                      
+                             )) (1, (sprint "Item.%d.ItemName" i, (if encode then Util.base64 name else name)) :: acc) attrs) in 
+        (i+1), acc)
+        (1, []) items in 
+        
+    let url, params = signed_request creds
+      (("Action", "BatchPutAttributes") 
+       :: ("DomainName", domain)
+       :: attrs') in 
+    try_lwt 
+       lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
+       print_endline body ;
+       return `Ok
+    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    
+
+    
 (* get attributes *)
 
   let get_attributes ?(encoded=true) creds domain ?attribute item = 
