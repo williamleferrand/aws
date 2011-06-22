@@ -60,7 +60,7 @@ struct
         uri_query_component 
       ]
       in 
-      print_endline string_to_sign ;
+      (* print_endline string_to_sign ; *)
       let hmac_sha1_encoder = Cryptokit.MAC.hmac_sha1 creds.aws_secret_access_key in
       let signed_string = Cryptokit.hash_string hmac_sha1_encoder string_to_sign in
       Util.base64 signed_string 
