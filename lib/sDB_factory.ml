@@ -122,31 +122,31 @@ struct
            ]) -> (if encoded then Util.base64_decoder name else name), (if encoded then Util.base64_decoder value else value)  
     | _ -> raise (Error "Attribute")
 
-let attrs_of_xml encoded = function 
-  | X.E ("Attribute", _ , 
-         [
-           X.E ("Name", _, [ X.P name ]) ;
-           X.E ("Value", _, [ X.P value ]) ;
-         ]) -> name, (Some value)
-  | X.E ("Attribute", _ , 
-         [
-           X.E ("Name", _, [ X.P name ]) ;
-           _
-         ]) -> name, None  
-  | _ -> raise (Error "Attribute")
+  let attrs_of_xml encoded = function 
+    | X.E ("Attribute", _ , 
+           [
+             X.E ("Name", _, [ X.P name ]) ;
+             X.E ("Value", _, [ X.P value ]) ;
+           ]) -> name, (Some value)
+    | X.E ("Attribute", _ , 
+           [
+             X.E ("Name", _, [ X.P name ]) ;
+             _
+           ]) -> name, None  
+    | _ -> raise (Error "Attribute")
 
-  let item_of_xml encoded = function 
-    | X.E ("Item", _, 
-           (X.E ("Name", _, [ X.P name ]) :: attrs)) -> (if encoded then Util.base64_decoder name else name), (List.map (attrs_of_xml encoded) attrs)
-
+  let rec item_of_xml encoded acc token = function 
+    | [] -> (acc, token)
+    | X.E ("Item", _, (X.E ("Name", _, [ X.P name ]) :: attrs)) :: nxt -> item_of_xml encoded (((if encoded then Util.base64_decoder name else name), (List.map (attrs_of_xml encoded) attrs)) :: acc) token nxt
+    | X.E ("NextToken", _, [ X.P next_token ]) :: _ -> acc, (Some next_token) 
     | _ -> raise (Error "Item")
-
+      
   let select_of_xml encoded = function 
     | X.E ("SelectResponse", _,
            [
              X.E ("SelectResult", _, items); 
              _ ;
-           ]) -> List.map (item_of_xml encoded) items
+           ]) -> item_of_xml encoded [] None items
     | _ -> raise (Error "SelectResponse")
 
 (* list all domains *)
