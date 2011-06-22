@@ -126,12 +126,12 @@ struct
            [
              X.E ("Name", _, [ X.P name ]) ;
              X.E ("Value", _, [ X.P value ]) ;
-           ]) -> name, (Some value)
+           ]) ->  (if encoded then Util.base64_decoder name else name), (Some  (if encoded then Util.base64_decoder value else value))
     | X.E ("Attribute", _ , 
            [
              X.E ("Name", _, [ X.P name ]) ;
              _
-           ]) -> name, None  
+           ]) -> (if encoded then Util.base64_decoder name else name), None  
     | _ -> raise (Error "Attribute")
 
   let rec item_of_xml encoded acc token = function 
