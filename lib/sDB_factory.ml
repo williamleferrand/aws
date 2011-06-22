@@ -59,8 +59,7 @@ struct
         http_uri ;
         uri_query_component 
       ]
-      in 
-      (* print_endline string_to_sign ; *)
+      in
       let hmac_sha1_encoder = Cryptokit.MAC.hmac_sha1 creds.aws_secret_access_key in
       let signed_string = Cryptokit.hash_string hmac_sha1_encoder string_to_sign in
       Util.base64 signed_string 
@@ -122,31 +121,31 @@ struct
            ]) -> (if encoded then Util.base64_decoder name else name), (if encoded then Util.base64_decoder value else value)  
     | _ -> raise (Error "Attribute")
 
-let attrs_of_xml encoded = function 
-  | X.E ("Attribute", _ , 
-         [
-           X.E ("Name", _, [ X.P name ]) ;
-           X.E ("Value", _, [ X.P value ]) ;
-         ]) -> name, (Some value)
-  | X.E ("Attribute", _ , 
-         [
-           X.E ("Name", _, [ X.P name ]) ;
-           _
-         ]) -> name, None  
-  | _ -> raise (Error "Attribute")
+  let attrs_of_xml encoded = function 
+    | X.E ("Attribute", _ , 
+           [
+             X.E ("Name", _, [ X.P name ]) ;
+             X.E ("Value", _, [ X.P value ]) ;
+           ]) -> name, (Some value)
+    | X.E ("Attribute", _ , 
+           [
+             X.E ("Name", _, [ X.P name ]) ;
+             _
+           ]) -> name, None  
+    | _ -> raise (Error "Attribute")
 
-  let item_of_xml encoded = function 
-    | X.E ("Item", _, 
-           (X.E ("Name", _, [ X.P name ]) :: attrs)) -> (if encoded then Util.base64_decoder name else name), (List.map (attrs_of_xml encoded) attrs)
-
+  let rec item_of_xml encoded acc token = function 
+    | [] -> (acc, token)
+    | X.E ("Item", _, (X.E ("Name", _, [ X.P name ]) :: attrs)) :: nxt -> item_of_xml encoded (((if encoded then Util.base64_decoder name else name), (List.map (attrs_of_xml encoded) attrs)) :: acc) token nxt
+    | X.E ("NextToken", _, [ X.P next_token ]) :: _ -> acc, (Some next_token) 
     | _ -> raise (Error "Item")
-
+      
   let select_of_xml encoded = function 
     | X.E ("SelectResponse", _,
            [
              X.E ("SelectResult", _, items); 
              _ ;
-           ]) -> List.map (item_of_xml encoded) items
+           ]) -> item_of_xml encoded [] None items
     | _ -> raise (Error "SelectResponse")
 
 (* list all domains *)
@@ -160,10 +159,9 @@ let attrs_of_xml encoded = function
     
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
        let xml = X.xml_of_string body in
        return (`Ok (list_domains_response_of_xml xml))
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) ->  return (error_msg body)
 
 (* create domain *)
 
@@ -176,9 +174,9 @@ let attrs_of_xml encoded = function
     
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
+       
        return `Ok
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) ->  return (error_msg body)
 
 (* delete domain *)
 
@@ -191,9 +189,9 @@ let attrs_of_xml encoded = function
     
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
+       
        return `Ok
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) ->  return (error_msg body)
 
 (* put attributes *)
   
@@ -213,9 +211,9 @@ let attrs_of_xml encoded = function
        :: attrs') in 
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
+       
        return `Ok
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) -> return (error_msg body)
 
 (* batch put attributes *)
       
@@ -239,9 +237,9 @@ let attrs_of_xml encoded = function
        :: attrs') in 
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
+       
        return `Ok
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) ->  return (error_msg body)
     
 
     
@@ -257,10 +255,10 @@ let attrs_of_xml encoded = function
          | Some attribute_name -> [ "AttributeName", (if encoded then Util.base64 attribute_name else attribute_name) ])) in 
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
+       
        let xml = X.xml_of_string body in
        return (`Ok (get_attributes_response_of_xml encoded xml))
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) ->  return (error_msg body)
  
 (* delete attributes *)
 
@@ -278,9 +276,9 @@ let attrs_of_xml encoded = function
        :: attrs') in 
     try_lwt 
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-       print_endline body ;
+       
        return `Ok
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) ->  return (error_msg body)
  
 (* select *)
 
@@ -296,9 +294,9 @@ let attrs_of_xml encoded = function
   let key_equals_value = Util.encode_key_equals_value ~safe:true params in
   let uri_query_component = String.concat "&" key_equals_value in
        lwt header, body = HC.post ~body:(`String uri_query_component) url in
-       print_endline body ;
+       
        let xml = X.xml_of_string body in
        return (`Ok (select_of_xml encoded xml))
-    with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+    with HC.Http_error (_, _, body) -> return (error_msg body)
  
 end
