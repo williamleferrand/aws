@@ -54,6 +54,10 @@ let rec select token expr =
    create_domain domain
 *)
 
-let _ = 
+let _ =
   Lwt_main.run 
-    (select None Sys.argv.(1))
+    (
+      let selects = Array.to_list (Array.init 6 (fun i -> select None Sys.argv.(1))) in
+      Lwt.join selects)
+ 
+
