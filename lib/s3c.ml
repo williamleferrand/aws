@@ -86,6 +86,7 @@ let get_object_s creds region bucket objekt () =
   let exit_code = 
     match result with
       | `Ok body -> print_string body; 0
+      | `AccessDenied -> print_endline "access denied"; 0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
       | `PermanentRedirect region -> redirect region; 1
@@ -97,6 +98,7 @@ let get_object creds region bucket objekt path () =
   let exit_code = 
     match result with
       | `Ok -> print_endline "ok"; 0
+      | `AccessDenied -> print_endline "access denied"; 0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
       | `PermanentRedirect region -> redirect region; 1
@@ -109,6 +111,7 @@ let get_object_range creds region bucket objekt path start fini () =
   let exit_code = 
     match result with
       | `Ok -> print_endline "ok"; 0
+      | `AccessDenied -> print_endline "access denied"; 0
       | `NotFound -> printf "%s/%s not found\n%!" bucket objekt; 0
       | `Error msg -> print_endline msg; 1
       | `PermanentRedirect region -> redirect region; 1
@@ -120,6 +123,7 @@ let put_object creds region bucket objekt path () =
   let exit_code = 
     match result with
       | `Ok -> 0
+      | `AccessDenied -> print_endline "access denied"; 0
       | `Error msg -> print_endline msg; 1
       | `PermanentRedirect region -> redirect region; 1
   in
@@ -130,6 +134,7 @@ let put_object_s creds region bucket objekt contents () =
   let exit_code = 
     match result with
       | `Ok -> 0
+      | `AccessDenied -> print_endline "access denied"; 0
       | `Error msg -> print_endline msg; 1
       | `PermanentRedirect region -> redirect region; 1
   in
@@ -346,7 +351,7 @@ let grant_object_permission creds region ~bucket ~objekt
   in
 
   (* get the acl *)
-  lwt result = S3.get_bucket_acl creds region bucket in
+  lwt result = S3.get_object_acl creds region bucket objekt in
   lwt exit_code = 
     match result with
       | `Ok acl -> (
