@@ -1,3 +1,3 @@
-module M = EC2_factory.Make (Cohttp.Http_client)
+module M = EC2_factory.Make (Http_client)
 
 include M
