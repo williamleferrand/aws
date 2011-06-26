@@ -72,7 +72,7 @@ struct
 
   (* XML readers *)  
       
-  let error_msg body =
+  let error_msg code' body =
     match X.xml_of_string body with
       | X.E ("Response",_,
              (X.E ("Errors",_,
@@ -80,8 +80,8 @@ struct
                      X.E ("Error",_,[
                        X.E ("Code",_,[X.P code]);
                        X.E ("Message",_,[X.P message])
-                     ])]))::_) -> `Error message
-      | _ -> `Error "unknown message"
+                     ])]))::_) -> `Error (code', message)
+      | _ -> `Error (0, "unknown message")
 
 
   let domain_of_xml = function 
@@ -162,7 +162,7 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        let xml = X.xml_of_string body in
        return (`Ok (list_domains_response_of_xml xml))
-    with HC.Http_error (_, _, body) ->  return (error_msg body)
+    with HC.Http_error (code, _, body) ->  return (error_msg code body)
 
 (* create domain *)
 
@@ -177,7 +177,7 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        
        return `Ok
-    with HC.Http_error (_, _, body) ->  return (error_msg body)
+    with HC.Http_error (code, _, body) ->  return (error_msg code body)
 
 (* delete domain *)
 
@@ -192,7 +192,7 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        
        return `Ok
-    with HC.Http_error (_, _, body) ->  return (error_msg body)
+    with HC.Http_error (code, _, body) ->  return (error_msg code body)
 
 (* put attributes *)
   
@@ -214,7 +214,7 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        
        return `Ok
-    with HC.Http_error (_, _, body) -> return (error_msg body)
+    with HC.Http_error (code, _, body) -> return (error_msg code body)
 
 (* batch put attributes *)
       
@@ -240,7 +240,7 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        
        return `Ok
-    with HC.Http_error (_, _, body) ->  return (error_msg body)
+    with HC.Http_error (code, _, body) ->  return (error_msg code body)
     
 
     
@@ -259,7 +259,7 @@ struct
        
        let xml = X.xml_of_string body in
        return (`Ok (get_attributes_response_of_xml encoded xml))
-    with HC.Http_error (_, _, body) ->  return (error_msg body)
+    with HC.Http_error (code, _, body) ->  return (error_msg code body)
  
 (* delete attributes *)
 
@@ -279,7 +279,7 @@ struct
        lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
        
        return `Ok
-    with HC.Http_error (_, _, body) ->  return (error_msg body)
+    with HC.Http_error (code, _, body) ->  return (error_msg code body)
  
 (* select *)
 
@@ -298,6 +298,6 @@ struct
        
        let xml = X.xml_of_string body in
        return (`Ok (select_of_xml encoded xml))
-    with HC.Http_error (_, _, body) -> return (error_msg body)
+    with HC.Http_error (code, _, body) -> return (error_msg code body)
  
 end

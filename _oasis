@@ -15,8 +15,8 @@ Flag cohttp
 Library "aws"
   Install$: true
   Path: lib
-  Modules: Creds, Sigs, Xml, EC2_factory, SDB_factory, S3_factory, SQS_factory
-  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp
+  Modules: Creds, Sigs, Xml, Aws_util, Http_method, EC2_factory, SDB_factory, S3_factory, SQS_factory
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp
 
 Library "aws-cohttp"
   Build$: flag(cohttp) || flag(all)
