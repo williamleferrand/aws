@@ -30,7 +30,7 @@
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *)
 
-module Make = functor (HC : Sigs.HTTP_CLIENT) ->
+module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
   struct 
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter

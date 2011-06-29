@@ -1,7 +1,7 @@
 (* SQS API *)
 (* william@corefarm.com *)
 
-module Make = functor (HC : Sigs.HTTP_CLIENT) -> 
+module Make = functor (HC : Aws_sigs.HTTP_CLIENT) -> 
 struct 
   module C = CalendarLib.Calendar 
   module P = CalendarLib.Printer.CalendarPrinter

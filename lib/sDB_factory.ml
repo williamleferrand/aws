@@ -1,7 +1,7 @@
 (* SDB API *)
 (* william@corefarm.com *)
 
-module Make = functor (HC : Sigs.HTTP_CLIENT) -> 
+module Make = functor (HC : Aws_sigs.HTTP_CLIENT) -> 
 struct 
 
   module C = CalendarLib.Calendar 
@@ -79,9 +79,10 @@ struct
                    [
                      X.E ("Error",_,[
                        X.E ("Code",_,[X.P code]);
-                       X.E ("Message",_,[X.P message])
-                     ])]))::_) -> `Error (code', message)
-      | _ -> `Error (0, "unknown message")
+                       X.E ("Message",_,[X.P message]); 
+                       _ 
+                     ])]))::_) -> `Error (code, message)
+      | _ -> `Error ("unknown", body)
 
 
   let domain_of_xml = function 
@@ -292,8 +293,8 @@ struct
          | None -> []
          | Some t -> [ "NextToken", t ])) in 
     try_lwt 
-  let key_equals_value = Util.encode_key_equals_value ~safe:true params in
-  let uri_query_component = String.concat "&" key_equals_value in
+       let key_equals_value = Util.encode_key_equals_value ~safe:true params in
+       let uri_query_component = String.concat "&" key_equals_value in
        lwt header, body = HC.post ~body:(`String uri_query_component) url in
        
        let xml = X.xml_of_string body in

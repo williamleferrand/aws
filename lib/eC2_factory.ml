@@ -1,5 +1,5 @@
 
-module Make = functor (HC : Sigs.HTTP_CLIENT) -> 
+module Make = functor (HC : Aws_sigs.HTTP_CLIENT) -> 
   struct 
 
 

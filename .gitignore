@@ -8,7 +8,6 @@ _build
 *conf
 *keys*
 setup*
-_tags
 configure
 myocamlbuild*
 *.mllib
