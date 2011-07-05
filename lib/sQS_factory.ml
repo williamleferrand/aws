@@ -152,7 +152,7 @@ let signed_request
 
 (* create queue *)
   let create_queue ?(default_visibility_timeout=30) creds queue_name = 
-    print_endline "creating queue" ; 
+    
     let url, params = signed_request ~http_uri:("/") creds 
       [
         "Action", "CreateQueue" ; 
@@ -163,15 +163,15 @@ let signed_request
   let ps = Util.encode_post_url params in
   print "posting request on %s: %s\n" url ps ; 
   lwt header, body = HC.post ~body:(`String ps) url in 
-  print_endline "we have the body" ; 
-  print_endline body ;
+  
+  
   let xml = X.xml_of_string body in
   return (`Ok (create_queue_response_of_xml xml))
   with HC.Http_error (code, _, body) -> print "Error %d %s\n" code body ; return (error_msg body)
 
 (* list existing queues *)
   let list_queues ?prefix creds = 
-    print_endline "list_queues" ; 
+    
     let url, params = signed_request ~http_uri:("/") creds
       (("Action", "ListQueues") 
        :: (match prefix with 
@@ -180,8 +180,7 @@ let signed_request
     try_lwt 
   let ps = Util.encode_post_url params in 
   lwt header, body = HC.post ~body:(`String ps) url in 
-  print_endline "we have the body" ; 
-  print_endline body ;
+  
   let xml = X.xml_of_string body in
   return (`Ok (list_queues_response_of_xml xml))
     with HC.Http_error (code, _, body) -> print "Error %d %s\n" code body ; return (error_msg body)
@@ -197,10 +196,10 @@ let signed_request
       ] in 
     try_lwt 
   lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-  print_endline body ;
+  
   let xml = X.xml_of_string body in
   return (`Ok (receive_message_response_of_xml ~encoded xml))
-  with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+  with HC.Http_error (_, _, body) -> return (error_msg body)
 
 (* delete a message from a queue *)
 
@@ -227,8 +226,8 @@ let signed_request
       ] in 
     try_lwt 
   lwt header, body = HC.post ~body:(`String (Util.encode_post_url params)) url in
-  print_endline body ;
+  
   let xml = X.xml_of_string body in
   return (`Ok (send_message_response_of_xml xml))
-  with HC.Http_error (_, _, body) -> print_endline body ; return (error_msg body)
+  with HC.Http_error (_, _, body) ->  return (error_msg body)
 end
