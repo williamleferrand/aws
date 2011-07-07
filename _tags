@@ -1,15 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 04feefefa0f41d93174ee0223e244435)
+# DO NOT EDIT (digest: 5f6c99b81b6534db26dd7e735569e035)
 # Library aws
-# Executable sdbtest
-<test/sdbtest.{native,byte}>: oasis_executable_sdbtest_byte
-<test/*.ml{,i}>: oasis_executable_sdbtest_byte
-<test/sdbtest.{native,byte}>: oasis_executable_sdbtest_native
-<test/*.ml{,i}>: oasis_executable_sdbtest_native
-<test/sdbtest.{native,byte}>: pkg_lwt.syntax
-<test/sdbtest.{native,byte}>: pkg_lwt
-<test/*.ml{,i}>: pkg_lwt.syntax
-<test/*.ml{,i}>: pkg_lwt
 # Library aws-cohttp
 "lib": include
 <lib/*.ml{,i}>: use_aws
