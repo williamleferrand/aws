@@ -26,12 +26,3 @@ Library "aws-cohttp"
   Path: lib
   Modules: EC2, SDB, S3, SQS
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp
-
-Executable sdbtest
-  Path:         test
-  MainIs:       sdbtest.ml
-  Install:      false
-  ByteOpt: -thread 
-  NativeOpt: -thread
-  CompiledObject: best
-  BuildDepends: lwt, lwt.syntax
