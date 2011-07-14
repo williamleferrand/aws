@@ -35,13 +35,20 @@ let service_url_of_region = function
   | `AP_SOUTHEAST_1 -> "http://s3-ap-southeast-1.amazonaws.com/"
   | `AP_NORTHEAST_1 -> "http://s3-ap-northeast-1.amazonaws.com/"
 
+let create_bucket_configuration_xml s = 
+  sprintf 
+    "<CreateBucketConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">
+       <LocationConstraint>%s</LocationConstraint>
+     </CreateBucketConfiguration>" 
+    s
+    
 (* wow this is bad *)
-let location_constraint_of_region = function
+let location_constraint_xml_of_region = function
   | `US_EAST_1      -> ""
-  | `US_WEST_1      -> "us-west-1"
-  | `EU_WEST_1      -> "EU"
-  | `AP_SOUTHEAST_1 -> "ap-southeast-1"
-  | `AP_NORTHEAST_1 -> "ap-northeast-1"
+  | `US_WEST_1      -> create_bucket_configuration_xml "us-west-1"
+  | `EU_WEST_1      -> create_bucket_configuration_xml "EU"
+  | `AP_SOUTHEAST_1 -> create_bucket_configuration_xml "ap-southeast-1"
+  | `AP_NORTHEAST_1 -> create_bucket_configuration_xml "ap-northeast-1"
 
 let now_as_string () =
   P.sprint "%a, %d %b %Y %H:%M:%S GMT" (C.now ())
@@ -386,12 +393,8 @@ let create_bucket creds region bucket amz_acl =
   let date = now_as_string () in
   let amz_headers = ["x-amz-acl", string_of_amz_acl amz_acl ] in
   let request_url = sprintf "%s%s" (service_url_of_region region) bucket in
-  let body = sprintf "
-    <CreateBucketConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"> 
-      <LocationConstraint>%s</LocationConstraint> 
-    </CreateBucketConfiguration>
-  " (location_constraint_of_region region) in
-
+  let body = location_constraint_xml_of_region region in
+  
   (* [Http_client] puts a default content type whenever there's a 
      non-empty body; since that contenty-type must figure into the 
      signature, we have to explicity set it here *)
