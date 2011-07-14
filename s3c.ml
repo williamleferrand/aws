@@ -402,26 +402,26 @@ let revoke_object_permission creds region ~bucket ~objekt
 
 let get_bucket_policy creds region ~bucket () =
   S3.get_bucket_policy creds region ~bucket >>= function
-    | `Ok policy -> print_endline policy; return 1
-    | `AccessDenied -> print_endline "access denied"; return 0
-    | `NotFound -> print_endline "not found"; return 0
-    | `NotOwner -> print_endline "not owner"; return 0
-    | `Error msg -> print_endline msg; return 0
+    | `Ok policy -> print_endline policy; return 0
+    | `AccessDenied -> print_endline "access denied"; return 1
+    | `NotFound -> print_endline "not found"; return 1
+    | `NotOwner -> print_endline "not owner"; return 1
+    | `Error msg -> print_endline msg; return 1
 
 let delete_bucket_policy creds region ~bucket () =
   S3.delete_bucket_policy creds region ~bucket >>= function
-    | `Ok -> print_endline "ok"; return 1
-    | `AccessDenied -> print_endline "access denied"; return 0
-    | `NotOwner -> print_endline "not owner"; return 0
-    | `Error msg -> print_endline msg; return 0
+    | `Ok -> print_endline "ok"; return 0
+    | `AccessDenied -> print_endline "access denied"; return 1
+    | `NotOwner -> print_endline "not owner"; return 1
+    | `Error msg -> print_endline msg; return 1
 
 
 let set_bucket_policy creds region ~bucket ~policy () =
   S3.set_bucket_policy creds region ~bucket ~policy >>= function
-    | `Ok -> print_endline "ok"; return 1
-    | `AccessDenied -> print_endline "access denied"; return 0
-    | `MalformedPolicy -> print_endline "malformed policy"; return 0
-    | `Error msg -> print_endline msg; return 0
+    | `Ok -> print_endline "ok"; return 0
+    | `AccessDenied -> print_endline "access denied"; return 1
+    | `MalformedPolicy -> print_endline "malformed policy"; return 1
+    | `Error msg -> print_endline msg; return 1
 
 
 let _ = 
