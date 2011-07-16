@@ -674,7 +674,6 @@ let list_objects ?(prefix="") ?(marker="") creds region bucket =
 
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
-    print_endline response_body ; 
     return (`Ok (list_bucket_result_of_xml (X.xml_of_string response_body)))
   with 
     | HC.Http_error (404, _, _   ) -> return `NotFound
