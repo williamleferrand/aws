@@ -637,14 +637,15 @@ and objects_of_xml = function
     X.E ("LastModified",_,[X.P last_modified_s]);
     X.E ("ETag",_,[X.P etag]);
     X.E ("Size",_,[X.P size]);
-    X.E ("Owner",_,[
+(*    X.E ("Owner",_,[
       X.E ("ID",_,[X.P owner_id]);
       X.E ("DisplayName",_,[X.P owner_display_name])
-    ]);
+    ]); *)
     X.E ("StorageClass",_,[X.P storage_class])
   ]) ->
     let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
     let size = int_of_string size in
+    let owner_id = "invalid" and owner_display_name = "invalid" in 
     (object 
       method name = name
       method last_modified = last_modified
@@ -657,11 +658,20 @@ and objects_of_xml = function
   | _ -> raise (Error "ListBucketResult:c")
     
 
-let list_objects creds region bucket =
+let list_objects ?(prefix="") ?(marker="") creds region bucket =
   let date = now_as_string () in
   let authorization_header = auth_hdr ~http_method:`GET ~date ~bucket creds in
   let headers = [ "Date", date ; authorization_header ] in
-  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) in
+  
+  let get_params = 
+    match prefix, marker with 
+        "", "" -> []
+      | _, "" -> [ "prefix", prefix ]
+      | "", _ -> [ "marker", marker ]
+      | _, _ -> [ "prefix", prefix ; "marker", marker ] in
+
+  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^ "?" ^ (Netencoding.Url.mk_url_encoded_parameters get_params) in
+
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (list_bucket_result_of_xml (X.xml_of_string response_body)))

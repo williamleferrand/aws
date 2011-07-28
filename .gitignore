@@ -7,9 +7,3 @@ _build
 *bug*
 *conf
 *keys*
-setup*
-configure
-myocamlbuild*
-*.mllib
-*.clib
-META
