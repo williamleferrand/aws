@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 2b0177667b0d56646cc78ca135dd09c0) *)
+(* DO NOT EDIT (digest: 73e94781205466113a7fcd64e6d22b3e) *)
 module OASISGettext = struct
 # 21 "/Users/hypios/reloaded/pub/oasis-0.2.0/src/oasis/OASISGettext.ml"
   
@@ -454,7 +454,33 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml =
        [("lib/aws", ["lib"]); ("lib/aws-cohttp", ["lib"])];
      lib_c = [];
-     flags = [];
+     flags =
+       [
+          (["oasis_library_aws_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_native"; "ocaml"; "ocamldep"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_native"; "ocaml"; "ocamldep"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])])
+       ];
      }
   ;;
 

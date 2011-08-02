@@ -2,6 +2,8 @@ ocsidb
 *byte
 *native
 _build
+setup.log
+setup.data
 *~
 *#*
 *bug*
