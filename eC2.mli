@@ -38,7 +38,6 @@ type instance_state = [
 | `terminated 
 | `stopping 
 | `stopped
-| `problematic
 ]
 
 val string_of_instance_state : instance_state -> string

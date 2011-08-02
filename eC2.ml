@@ -250,18 +250,18 @@ type instance_state = [
 | `terminated 
 | `stopping 
 | `stopped
-| `problematic
 ]
 
-let instance_state_of_code = function
-  |  0  -> `pending
-  | 16  -> `running
-  | 32  -> `shutting_down
-  | 48  -> `terminated
-  | 64  -> `stopping
-  | 80  -> `stopped
-  | 272 -> `problematic
-  | _   -> raise (Error "instance_state_of_code")
+let instance_state_of_code code = 
+  (* only low byte meaningful *)
+  match code land 0xff with 
+    |  0  -> `pending
+    | 16  -> `running
+    | 32  -> `shutting_down
+    | 48  -> `terminated
+    | 64  -> `stopping
+    | 80  -> `stopped
+    | x   -> raise (Error (Printf.sprintf "instance_state_of_code: %d" x))
 
 let string_of_instance_state = function
   | `pending       -> "pending"
@@ -270,7 +270,6 @@ let string_of_instance_state = function
   | `terminated    -> "terminated"
   | `stopping      -> "stopping"
   | `stopped       -> "stopped"
-  | `problematic   -> "problematic"
 
 
 let state_of_xml = function
