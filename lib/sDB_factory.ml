@@ -102,9 +102,15 @@ struct
              X.E ("Name", _, [ X.P name ]); 
              X.E ("Value", _, [ X.P value ]); 
            ]) -> ((if encoded then Util.base64_decoder name else name),  
-                  (if encoded then Util.base64_decoder value else value))
+                  (if encoded then Some (Util.base64_decoder value) else Some value))
 
-    | _ -> raise (Error "Attribute")
+    | X.E ("Attribute", _, 
+           [
+             X.E ("Name", _, [ X.P name ]); 
+             X.E ("Value", _, [ ]); 
+           ]) -> ((if encoded then Util.base64_decoder name else name), None)
+
+    | _ -> raise (Error "Attribute 1")
 
   let get_attributes_response_of_xml encoded = function 
     | X.E ("GetAttributesResponse", _, 
@@ -116,25 +122,19 @@ struct
 
 
   let attrs_of_xml encoded = function 
-    | X.E ("Attribute", _ , 
-           [
-             X.E ("Name", _, [ X.P name ]); 
-             X.E ("Value", _, [ X.P value ])
-           ]) -> (if encoded then Util.base64_decoder name else name), (if encoded then Util.base64_decoder value else value)  
-    | _ -> raise (Error "Attribute")
-
-  let attrs_of_xml encoded = function 
-    | X.E ("Attribute", _ , 
-           [
-             X.E ("Name", _, [ X.P name ]) ;
-             X.E ("Value", _, [ X.P value ]) ;
-           ]) ->  (if encoded then Util.base64_decoder name else name), (Some  (if encoded then Util.base64_decoder value else value))
-    | X.E ("Attribute", _ , 
-           [
-             X.E ("Name", _, [ X.P name ]) ;
-             _
-           ]) -> (if encoded then Util.base64_decoder name else name), None  
-    | _ -> raise (Error "Attribute")
+    | X.E ("Attribute", _ , children) -> 
+      ( match children with 
+        | [
+          X.E ("Name", _, [ X.P name ]) ;
+          X.E ("Value", _, [ X.P value ]) ;
+        ] ->  (if encoded then Util.base64_decoder name else name), (Some  (if encoded then Util.base64_decoder value else value))
+        | [
+          X.E ("Name", _, [ X.P name ]) ;
+          X.E ("Value", _, [ ]) ;
+        ] -> (if encoded then Util.base64_decoder name else name), None  
+        | l -> failwith (Printf.sprintf "fat list %d" (List.length l)) 
+ )    
+    | _ -> raise (Error "Attribute 3")
 
   let rec item_of_xml encoded acc token = function 
     | [] -> (acc, token)
@@ -200,12 +200,20 @@ struct
   let put_attributes ?(replace=false) ?(encode=true) creds domain item attrs = 
     let _, attrs' = 
       List.fold_left 
-        (fun (i, acc) (name, value) -> 
-          (i+1), ((sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
-          :: (sprint "Attribute.%d.Value" i, (if encode then Util.base64 value else value))
-          :: (if replace then 
-               (sprint "Attribute.%d.Replace" i, "true") :: acc 
-            else acc))) (1, []) attrs in
+        (fun (i, acc) ->  
+          function 
+            | (name, None) -> 
+              (i+1), ((sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name))
+                      :: (sprint "Attribute.%d.Value" i, "")
+                      :: (if replace then 
+                          (sprint "Attribute.%d.Replace" i, "true") :: acc 
+                        else acc))
+            | (name, Some value) -> 
+              (i+1), ((sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
+                      :: (sprint "Attribute.%d.Value" i, (if encode then Util.base64 value else value))
+                      :: (if replace then 
+                          (sprint "Attribute.%d.Replace" i, "true") :: acc 
+                        else acc))) (1, []) attrs in
     let url, params = signed_request creds
       (("Action", "PutAttributes") 
        :: ("DomainName", domain)
@@ -265,12 +273,12 @@ struct
 (* delete attributes *)
 
   let delete_attributes ?(encode=true) creds domain item attrs = 
-    let attrs' = 
+    let _, attrs' = 
       List.fold_left 
-        (fun acc (i, name, value) -> 
-          (sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
+        (fun (i, acc) (name, value) -> 
+          i+1, (sprint "Attribute.%d.Name" i, (if encode then Util.base64 name else name)) 
           :: (sprint "Attribute.%d.Value" i, (if encode then Util.base64 value else value))
-          :: acc) [] attrs in
+          :: acc) (0,[]) attrs in
     let url, params = signed_request creds
       (("Action", "DeleteAttributes") 
        :: ("DomainName", domain)
