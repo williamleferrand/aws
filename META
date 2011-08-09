@@ -1,5 +1,0 @@
-description = "Aws -- clients of Amazon Web Services"
-version = "1.0"
-requires = "netstring cryptokit calendar cohttp lwt.syntax xmlm yojson"
-archive(byte) = "aws.cma"
-archive(native) = "aws.cmxa"
