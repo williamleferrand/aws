@@ -1,0 +1,22 @@
+# OASIS_START
+# DO NOT EDIT (digest: 677bd9ffe42d6b54e0a7fdd5f3bc95e1)
+version = "0.0.1"
+description = "aws client lib for amazon web services"
+requires
+ =
+ "lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm cohttp"
+archive(byte) = "aws.cma"
+archive(native) = "aws.cmxa"
+exists_if = "aws.cma"
+package "cohttp" (
+ version = "0.0.1"
+ description = "aws client lib for amazon web services"
+ requires
+  =
+  "lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm aws cohttp"
+ archive(byte) = "aws-cohttp.cma"
+ archive(native) = "aws-cohttp.cmxa"
+ exists_if = "aws-cohttp.cma"
+)
+# OASIS_STOP
+

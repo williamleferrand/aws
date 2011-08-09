@@ -1,0 +1,32 @@
+OASISFormat: 0.1
+Name: aws
+Version: 0.0.1
+LicenseFile: COPYING
+License: PROP
+Authors: 
+BuildTools: ocamlbuild
+Plugins: DevFiles (0.2), META (0.2)
+Synopsis: aws client lib for amazon web services
+
+Flag cohttp
+  Description: cohttp 
+  Default: true
+
+Library "aws"
+  Install$: true
+  Path: lib
+  ByteOpt: -annot
+  NativeOpt: -annot
+  Modules: Creds, Aws_sigs, Xml, Aws_util, Http_method, EC2_factory, SDB_factory, S3_factory, SQS_factory, Policy
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp
+
+Library "aws-cohttp"
+  Build$: flag(cohttp) || flag(all)
+  Install$: flag(cohttp) || flag(all)
+  FindlibName: cohttp
+  FindlibParent: aws
+  ByteOpt: -annot
+  NativeOpt: -annot 
+  Path: lib
+  Modules: EC2, SDB, S3, SQS
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp

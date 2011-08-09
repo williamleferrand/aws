@@ -30,6 +30,7 @@
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *)
 
+(* Miscellaneous *****************************************************************)
 
 let remove_newline = 
   Pcre.replace ~rex:(Pcre.regexp "\n") ~templ:""
@@ -51,14 +52,26 @@ let base64_decoder str =
 
 let colon_space (k, v) = k ^ ": " ^ v
 
-let encode_url s = Netencoding.Url.encode s
+let encode_url ?(safe=false) str = 
+  if not safe then Netencoding.Url.encode ~plus:false str
+  else
+    begin
+      let strlist = ref [] in 
+      for i = 0 to String.length str - 1 do 
+        let c = Char.code (str.[i]) in 
+        if (65 <= c && c <= 90) || (48 <= c && c <= 57 ) || (97 <= c && c <= 122) || (c = 126) || (c = 95) || (c = 46) || (c = 45) then  
+	    strlist := Printf.sprintf "%c" str.[i] :: !strlist 
+        else 
+	    strlist :=  Printf.sprintf "%%%X" c :: !strlist 
+      done ;
+      String.concat "" (List.rev !strlist) 
+    end
 
-let encode_key_equals_value kvs = 
+let encode_key_equals_value ?(safe=false) kvs = 
   List.map (
     fun (k,v) -> 
-      (encode_url k) ^ "=" ^ (encode_url v)
+      (encode_url ~safe k) ^ "=" ^ (encode_url ~safe v)
   ) kvs
-
 
 let file_size path =
   let s = Unix.stat path in
@@ -154,6 +167,6 @@ let file_contents path =
   Lwt.return contents
 
   
-(* Post encoding *)
+(* Post encoding *****************************************************************)
 
 let encode_post_url = Netencoding.Url.mk_url_encoded_parameters 

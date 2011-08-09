@@ -1,4 +1,11 @@
-keys.ml
+ocsidb
+*byte
+*native
+_build
+setup.log
+setup.data
 *~
-*.cm*
-*.annot
+*#*
+*bug*
+*conf
+*keys*

@@ -1,15 +1,18 @@
 Package to provide OCaml client access to Amazon services, such as S3,
-EC2, SQS, etc.
+EC2, SQS, SDB etc.
 
 Aws depends directly on the following packages:
 
--  omake
 -  netstring
 -  cryptokit
 -  calendar
 -  lwt
 -  [xmlm](http://github.com/samoht/xmlm)
 -  [cohttp](http://github.com/avsm/ocaml-cohttp)
+<<<<<<< HEAD:README.md
 -  yojson 
+=======
+-  (eventual) ocsigen
+>>>>>>> b7460b8523ee928821821f7f821e601ed6ec0af0:README
 
 All of the packages except the last two are available via GODI.  

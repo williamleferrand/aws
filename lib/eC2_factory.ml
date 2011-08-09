@@ -1,7 +1,12 @@
+
+module Make = functor (HC : Aws_sigs.HTTP_CLIENT) -> 
+  struct 
+
+
 module C = CalendarLib.Calendar 
 module P = CalendarLib.Printer.CalendarPrinter
 module X = Xml
-module HC = Cohttp.Http_client
+
 
 open Lwt
 open Creds
@@ -105,7 +110,6 @@ let signed_request
   let params = ("Signature", signature) :: params in
   let params_s = String.concat "&" (Util.encode_key_equals_value params) in
   sprint "http://%s%s?%s" http_host http_uri params_s
-
 
 
 (* describe regions *)
@@ -779,3 +783,4 @@ let cancel_spot_instance_requests ?region creds sir_ids =
   with 
     | HC.Http_error (_,_,body) -> return (error_msg body)
 
+end
