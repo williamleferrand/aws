@@ -18,7 +18,7 @@ Library "aws"
   ByteOpt: -annot
   NativeOpt: -annot
   Modules: Creds, Aws_sigs, Xml, Aws_util, Http_method, EC2_factory, SDB_factory, S3_factory, SQS_factory, Policy
-  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp, yojson
 
 Library "aws-cohttp"
   Build$: flag(cohttp) || flag(all)

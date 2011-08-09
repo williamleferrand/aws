@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 76b387b63dc2d77e2a838e2cc5609440)
+# DO NOT EDIT (digest: b2d36f4f69675ddbdc4bd187759b0559)
 # Library aws
 <lib/aws.{cma,cmxa}>: oasis_library_aws_byte
 <lib/*.ml{,i}>: oasis_library_aws_byte
@@ -12,6 +12,7 @@
 <lib/aws-cohttp.{cma,cmxa}>: oasis_library_aws_cohttp_native
 <lib/*.ml{,i}>: oasis_library_aws_cohttp_native
 <lib/*.ml{,i}>: use_aws
+<lib/*.ml{,i}>: pkg_yojson
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: pkg_pcre
 <lib/*.ml{,i}>: pkg_netstring
