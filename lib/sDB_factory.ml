@@ -100,14 +100,30 @@ struct
     else
       s
 
-  let domain_of_xml = function 
-    | X.E ("DomainName", _, [ X.P domain_name ]) -> domain_name 
+  let domain_or_next_of_xml = function 
+    | X.E ("DomainName", _, [ X.P domain_name ]) -> `D domain_name 
+    | X.E ("NextToken", _, [ X.P next_token ]) -> `N next_token
     | _ -> raise (Error "ListDomainsResult.domain")
 
   let list_domains_response_of_xml = function 
     | X.E ("ListDomainsResponse", _, [ 
-             X.E ("ListDomainsResult", _, domains); 
-             _ ]) -> List.map domain_of_xml domains
+             X.E ("ListDomainsResult", _, domain_or_next_list ); 
+             _ ]) -> 
+        let domain_names, next_tokens = List.fold_left (
+          fun (domain_names, next_tokens) domain_or_next_xml ->
+            match domain_or_next_of_xml domain_or_next_xml with
+              | `D domain_name -> domain_name :: domain_names, next_tokens
+              | `N next_token -> domain_names, next_token :: next_tokens
+        ) ([],[]) domain_or_next_list in
+        (* preseve the order of domains in response *)
+        let domain_names = List.rev domain_names in
+        domain_names, 
+        (* check that we have no more than one NextToken *)
+        (match next_tokens with
+           | [next_token] -> Some next_token
+           | [] -> None
+           | _ -> raise (Error "ListDomainsResponse: more than one NextToken")
+        )
     | _ -> raise (Error "ListDomainsResult")
     
   let attributes_of_xml encoded = function 
