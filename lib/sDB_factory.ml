@@ -206,7 +206,7 @@ struct
 
   (* put attributes *)
   
-  let put_attributes ?(replace=false) ?(encode=true) creds domain item attrs = 
+  let put_attributes ?(replace=false) ?(encode=true) creds ~domain ~item attrs = 
     let _, attrs' = List.fold_left (
       fun (i, acc) (name, value_opt) ->  
         let value_s = 
@@ -274,7 +274,7 @@ struct
     
   (* get attributes *)
 
-  let get_attributes ?(encoded=true) creds domain ?attribute item = 
+  let get_attributes ?(encoded=true) creds ~domain ?attribute ~item () = 
     let attribute_name_p =
       match attribute with 
         | None -> [] 
@@ -296,7 +296,7 @@ struct
  
   (* delete attributes *)
 
-  let delete_attributes ?(encode=true) creds domain item attrs = 
+  let delete_attributes ?(encode=true) creds ~domain ~item attrs = 
     let _, attrs' = List.fold_left (
       fun (i, acc) (name, value) -> 
         let name_p = sprint "Attribute.%d.Name" i, b64enc_if encode name in
@@ -338,4 +338,11 @@ struct
        return (`Ok (select_of_xml encoded xml))
     with HC.Http_error (code, _, body) -> return (error_msg code body)
  
+  (* select all records where attribute [name] equals [value] *)
+  let select_where_attribute_equals ?(consistent=false) ?(encoded=true) ?(token=None) creds
+      ~domain ~name ~value =
+    let expression = sprint "select * from %s where %s = %S" 
+      domain name (b64enc_if encoded value) in
+    select ~consistent ~encoded ~token creds expression 
+
 end
