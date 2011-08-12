@@ -357,8 +357,8 @@ struct
   (* select all records where attribute [name] equals [value] *)
   let select_where_attribute_equals ?(consistent=false) ?(encoded=true) ?(token=None) creds
       ~domain ~name ~value =
-    let expression = sprint "select * from %s where %s = %S" 
-      domain name (b64enc_if encoded value) in
+    let expression = sprint "select * from `%s` where `%s` = %S" 
+      domain (b64enc_if encoded name) (b64enc_if encoded value) in
     select ~consistent ~encoded ~token creds expression 
 
 end
