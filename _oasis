@@ -30,3 +30,13 @@ Library "aws-cohttp"
   Path: lib
   Modules: EC2, SDB, S3, SQS
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp
+
+
+Executable deldomain
+  Path:         tools
+  MainIs:       deldomains.ml
+  Install:      false
+  ByteOpt: -thread 
+  NativeOpt: -thread
+  CompiledObject: best
+  BuildDepends: aws.cohttp

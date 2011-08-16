@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b2d36f4f69675ddbdc4bd187759b0559)
+# DO NOT EDIT (digest: 2f1e9174b4079bf6aaf9134ecb53a898)
 # Library aws
 <lib/aws.{cma,cmxa}>: oasis_library_aws_byte
 <lib/*.ml{,i}>: oasis_library_aws_byte
@@ -22,5 +22,35 @@
 <lib/*.ml{,i}>: pkg_cryptokit
 <lib/*.ml{,i}>: pkg_cohttp
 <lib/*.ml{,i}>: pkg_calendar
+# Executable deldomain
+<tools/deldomains.{native,byte}>: oasis_executable_deldomain_byte
+<tools/*.ml{,i}>: oasis_executable_deldomain_byte
+<tools/deldomains.{native,byte}>: oasis_executable_deldomain_native
+<tools/*.ml{,i}>: oasis_executable_deldomain_native
+<tools/deldomains.{native,byte}>: use_aws-cohttp
+<tools/deldomains.{native,byte}>: use_aws
+<tools/deldomains.{native,byte}>: pkg_yojson
+<tools/deldomains.{native,byte}>: pkg_xmlm
+<tools/deldomains.{native,byte}>: pkg_pcre
+<tools/deldomains.{native,byte}>: pkg_netstring
+<tools/deldomains.{native,byte}>: pkg_lwt.unix
+<tools/deldomains.{native,byte}>: pkg_lwt.syntax
+<tools/deldomains.{native,byte}>: pkg_lwt
+<tools/deldomains.{native,byte}>: pkg_cryptokit
+<tools/deldomains.{native,byte}>: pkg_cohttp
+<tools/deldomains.{native,byte}>: pkg_calendar
+<tools/*.ml{,i}>: use_aws-cohttp
+<tools/*.ml{,i}>: use_aws
+<tools/*.ml{,i}>: pkg_yojson
+<tools/*.ml{,i}>: pkg_xmlm
+<tools/*.ml{,i}>: pkg_pcre
+<tools/*.ml{,i}>: pkg_netstring
+<tools/*.ml{,i}>: pkg_lwt.unix
+<tools/*.ml{,i}>: pkg_lwt.syntax
+<tools/*.ml{,i}>: pkg_lwt
+<tools/*.ml{,i}>: pkg_cryptokit
+<tools/*.ml{,i}>: pkg_cohttp
+<tools/*.ml{,i}>: pkg_calendar
 # OASIS_STOP
 <lib/*.ml{,i}>: syntax_camlp4o
+<tools/*.ml{,i}>: syntax_camlp4o

@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 73e94781205466113a7fcd64e6d22b3e) *)
+(* DO NOT EDIT (digest: 3c1a4de2a1035a88de9a915ac8510e65) *)
 module OASISGettext = struct
 # 21 "/Users/hypios/reloaded/pub/oasis-0.2.0/src/oasis/OASISGettext.ml"
   
@@ -479,7 +479,25 @@ let package_default =
           (["oasis_library_aws_cohttp_byte"; "ocaml"; "compile"; "byte"],
             [(OASISExpr.EBool true, S [A "-annot"])]);
           (["oasis_library_aws_cohttp_native"; "ocaml"; "compile"; "native"],
-            [(OASISExpr.EBool true, S [A "-annot"])])
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_executable_deldomain_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          ([
+              "oasis_executable_deldomain_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_native"; "ocaml"; "compile"; "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-thread"])])
        ];
      }
   ;;

@@ -5,9 +5,21 @@ open Lwt_io
 
 module StringMap = Map.Make(String)
 
+let list_domains creds =
+  let rec loop ?token accu =
+    SDB.list_domains creds ?token () >>= function
+      | `Error msg -> return (`Error msg)
+      | `Ok (domains, next_opt) -> 
+        let accu' = domains :: accu in
+        match next_opt with
+          | Some token -> loop ~token accu'
+          | None -> return (`Ok (List.flatten (List.rev accu')))
+  in
+  loop ?token:None []
+
 let main () =
   let creds = Aws_util.creds_of_env () in
-  lwt domains = Dbi_util.list_domains creds >>= function 
+  lwt domains = list_domains creds >>= function 
     | `Error (a,b) -> 
         printf "list domains failure: %s %s\n%!" a b >>
           exit 1
