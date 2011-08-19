@@ -629,19 +629,30 @@ and objects_of_xml = function
   | _ -> raise (Error "ListBucketResult:c")
     
 
-let list_objects ?(prefix="") ?(marker="") creds region bucket =
+let list_objects ?prefix ?marker ?max_keys creds region bucket =
   let date = now_as_string () in
   let authorization_header = auth_hdr ~http_method:`GET ~date ~bucket creds in
   let headers = [ "Date", date ; authorization_header ] in
   
-  let get_params = 
-    match prefix, marker with 
-        "", "" -> []
-      | _, "" -> [ "prefix", prefix ]
-      | "", _ -> [ "marker", marker ]
-      | _, _ -> [ "prefix", prefix ; "marker", marker ] in
+  let params = [] in
+  let params = 
+    match prefix with
+      | None -> params
+      | Some p -> ("prefix", p) :: params
+  in
+  let params = 
+    match marker with
+      | None -> params
+      | Some m ->  ("marker", m) :: params
+  in
+  let params =
+    match max_keys with
+      | None -> params
+      | Some mk -> ("max-keys", string_of_int mk) :: params 
+  in
 
-  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^ "?" ^ (Netencoding.Url.mk_url_encoded_parameters get_params) in
+  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^ 
+    "?" ^ (Netencoding.Url.mk_url_encoded_parameters params) in
 
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
