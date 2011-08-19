@@ -609,15 +609,14 @@ and objects_of_xml = function
     X.E ("LastModified",_,[X.P last_modified_s]);
     X.E ("ETag",_,[X.P etag]);
     X.E ("Size",_,[X.P size]);
-(*    X.E ("Owner",_,[
-      X.E ("ID",_,[X.P owner_id]);
-      X.E ("DisplayName",_,[X.P owner_display_name])
-    ]); *)
+    X.E ("Owner",_,[
+           X.E ("ID",_,[X.P owner_id]);
+           X.E ("DisplayName",_,[X.P owner_display_name])
+         ]);
     X.E ("StorageClass",_,[X.P storage_class])
   ]) ->
     let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
     let size = int_of_string size in
-    let owner_id = "invalid" and owner_display_name = "invalid" in 
     (object 
       method name = name
       method last_modified = last_modified
