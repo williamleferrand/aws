@@ -221,7 +221,7 @@ let auth_hdr
 
   let string_to_sign = 
     let buf = new buffer 100 in
-    buf#add (string_of_http_method http_method); buf#add "\n";
+    buf#add (Http_method.string_of_t http_method); buf#add "\n";
     buf#add content_md5; buf#add "\n";
     buf#add content_type; buf#add "\n";
     buf#add date; buf#add "\n";

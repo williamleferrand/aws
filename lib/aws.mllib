@@ -1,5 +1,3 @@
-# OASIS_START
-# DO NOT EDIT (digest: a8676cbd1e04501418f3052fd624a794)
 Creds
 Aws_sigs
 Xml
@@ -10,4 +8,4 @@ SDB_factory
 S3_factory
 SQS_factory
 Policy
-# OASIS_STOP
+

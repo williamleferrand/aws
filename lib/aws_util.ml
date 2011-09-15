@@ -1,35 +1,3 @@
-(* Copyright (c) 2010, barko 00336ea19fcb53de187740c490f764f4 All
-   rights reserved.
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are
-   met:
-   
-   1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the
-   distribution.
-
-   3. Neither the name of barko nor the names of contributors may be used
-   to endorse or promote products derived from this software without
-   specific prior written permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*)
-
 (* Miscellaneous *****************************************************************)
 
 let remove_newline = 
@@ -53,16 +21,25 @@ let base64_decoder str =
 let colon_space (k, v) = k ^ ": " ^ v
 
 let encode_url ?(safe=false) str = 
-  if not safe then Netencoding.Url.encode ~plus:false str
+  if not safe then 
+    Netencoding.Url.encode ~plus:false str
   else
     begin
       let strlist = ref [] in 
       for i = 0 to String.length str - 1 do 
         let c = Char.code (str.[i]) in 
-        if (65 <= c && c <= 90) || (48 <= c && c <= 57 ) || (97 <= c && c <= 122) || (c = 126) || (c = 95) || (c = 46) || (c = 45) then  
-	    strlist := Printf.sprintf "%c" str.[i] :: !strlist 
+        if 
+          (65 <= c && c <= 90) || 
+          (48 <= c && c <= 57 ) || 
+          (97 <= c && c <= 122) || 
+          (c = 126) || 
+          (c = 95) || 
+          (c = 46) || 
+          (c = 45) 
+        then  
+	  strlist := Printf.sprintf "%c" str.[i] :: !strlist 
         else 
-	    strlist :=  Printf.sprintf "%%%X" c :: !strlist 
+	  strlist :=  Printf.sprintf "%%%X" c :: !strlist 
       done ;
       String.concat "" (List.rev !strlist) 
     end
@@ -73,6 +50,27 @@ let encode_key_equals_value ?(safe=false) kvs =
       (encode_url ~safe k) ^ "=" ^ (encode_url ~safe v)
   ) kvs
 
+(* return the query parameters of a url, if any, as an association
+   list; eg [url_params "somegrabage?x=y&z&p=q"] will return
+   ["x","y";"z","";"p","q"] *)
+let url_params uri =
+  match Pcre.split ~pat:"\\?" uri with
+    | [before_question_mark ; after_question_mark] ->
+        let kvs = Pcre.split ~pat:"&" after_question_mark in
+        List.fold_left (
+          fun accu kv ->
+            match Pcre.split ~max:2 ~pat:"=" kv with (* "x=y=z" -> ["x";"y=z"] *)
+              | [k; v] ->
+                  let kv = Netencoding.Url.decode k, Netencoding.Url.decode v in
+                  kv :: accu
+              | [k] ->
+                  let kv = Netencoding.Url.decode k, "" in
+                  kv :: accu
+              | _ -> accu
+        ) [] kvs
+    | _ -> []
+
+
 let file_size path =
   let s = Unix.stat path in
   s.Unix.st_size
@@ -81,7 +79,7 @@ let xml_declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 
 let sort_assoc_list kv_list = 
   List.sort (fun (k1,_) (k2,_) -> String.compare k1 k2) kv_list
-  
+    
 let getenv_else_exit k = 
   try 
     Unix.getenv k
@@ -170,3 +168,36 @@ let file_contents path =
 (* Post encoding *****************************************************************)
 
 let encode_post_url = Netencoding.Url.mk_url_encoded_parameters 
+
+(* Copyright (c) 2011, barko 00336ea19fcb53de187740c490f764f4 All
+   rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+   
+   1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+   3. Neither the name of barko nor the names of contributors may be used
+   to endorse or promote products derived from this software without
+   specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*)
+

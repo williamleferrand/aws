@@ -1,6 +1,6 @@
-type http_method = [`GET | `PUT | `POST | `HEAD | `DELETE ]
+type t = [`GET | `PUT | `POST | `HEAD | `DELETE ]
 
-let string_of_http_method = function
+let string_of_t = function
   | `GET -> "GET"
   | `PUT -> "PUT"
   | `HEAD -> "HEAD"
