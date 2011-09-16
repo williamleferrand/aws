@@ -1,8 +1,10 @@
 module Util = Aws_util
 module X = Xml
+module HC = Http_client10
 
 open Creds
 open Printf
+open Lwt
 
 let cbui_http_uri = "/cobranded-ui/actions/start"
 let fps_http_uri = "/"
@@ -54,6 +56,58 @@ let string_of_pipeline = function
 
 type service_kind = [`FPS | `CBUI]
 
+type scheme = [`HTTP | `HTTPS]
+let string_of_scheme = function
+  | `HTTP -> "http"
+  | `HTTPS -> "https"
+
+type url = {
+  scheme : scheme;
+  host : string;
+  port : int option;
+  query : string;
+  params : (string * string) list
+}
+
+let string_of_url u =
+  let buf = Buffer.create 100 in
+  let add = Buffer.add_string buf in
+  add (string_of_scheme u.scheme);
+  add "://";
+  add u.host;
+  (match u.port with
+     | Some p -> add (":" ^ (string_of_int p))
+     | None -> ()
+  );
+  add u.query; (* remember the leading '/' ! *)
+  (match u.params with
+     | _ :: _  ->
+         add "?";
+         let key_equals_value = Util.encode_key_equals_value u.params in
+         let params_sep = String.concat "&" key_equals_value in
+         add params_sep
+     | [] -> ()
+  );
+  Buffer.contents buf
+
+let modify_url_endpoint u alt_scheme alt_host alt_port =
+  let u = 
+    match alt_host with
+      | Some host -> { u with host }
+      | None -> u
+  in
+  let u = 
+    match alt_port with
+      | Some port -> { u with port = (Some port) }
+      | None -> u
+  in
+  let u = 
+    match alt_scheme with
+      | Some scheme -> { u with scheme }
+      | None -> u
+  in
+  u
+
 (* sign a request, and produce a url *)
 let sign_request creds ?(sandbox=false) http_method params service_kind = 
   let http_host, http_uri =
@@ -87,9 +141,13 @@ let sign_request creds ?(sandbox=false) http_method params service_kind =
       | `FPS  -> "Signature" (* shamefull, Amazon! *)
   in
   let params = (signature_key, signature) :: params in
-
-  let params_s = String.concat "&" (Util.encode_key_equals_value params) in
-  sprintf "https://%s%s?%s" http_host http_uri params_s
+  {
+    scheme = `HTTPS;
+    port = None;
+    host = http_host;
+    query = http_uri;
+    params;
+  }
 
 
 type payment_method = [ `CC | `ACH | `ABT ]
@@ -284,7 +342,8 @@ struct
         (* aws access key id of the caller *)
         let params = ("callerKey", creds.aws_access_key_id) :: params in
 
-        sign_request creds ~sandbox `GET params `CBUI
+        let u = sign_request creds ~sandbox `GET params `CBUI in
+        string_of_url u
 
 
     end
@@ -355,142 +414,146 @@ struct
 
   module Pay = struct
 
-    module Request = struct
-      type customer_service_owner = [ `Caller | `Recipient ]
-      type soft_descriptor_type = [ `Static | `Dynamic of string ] 
-          (* [`Dynamic] -> SenderDescription *)
-          
-      type descriptor_policy = {
-        customer_service_owner : customer_service_owner ;
-        soft_descriptor_type : soft_descriptor_type 
-      }
-
-      let string_of_customer_service_owner = function
-        | `Caller -> "Caller"
-        | `Recipient -> "Recipient"
-
-      let string_of_soft_descriptor_type = function
-        | `Static -> "Static"
-        | `Dynamic _ -> "Dynamic"
-
-      let params_of_descriptor_policy dp =
-        let params =
-          match dp.soft_descriptor_type with
-            | `Dynamic sender_description ->
-                ["SenderDescription", sender_description]
-            | `Static -> []
-        in
-
-        ["DescriptorPolicy.CSOwner", 
-         string_of_customer_service_owner dp.customer_service_owner;
-         "DescriptorPolicy.SoftDescriptorType", 
-         string_of_soft_descriptor_type dp.soft_descriptor_type
-        ] @ params
-
-      type t = {
-        caller_description : string option;
-        caller_reference : string;
-        descriptor_policy : descriptor_policy option;
-        sender_token_id : string;
-        transaction_amount : float;
-        currency_code : string;
-        transaction_timeout_minutes : int option;
-        expires_minutes : int option
-      }
-
-      let create ~sender_token_id ~transaction_amount ~caller_reference = {
-        caller_description = None;
-        caller_reference;
-        descriptor_policy = None;
-        sender_token_id;
-        transaction_amount;
-        currency_code = "USD";
-        transaction_timeout_minutes = None;
-        expires_minutes = None;
-      }
-
-
-      let to_url creds ?(sandbox=false) t =
-        let params = fps_signature_params in
-        let params = 
-          match t.descriptor_policy with
-            | None -> params 
-            | Some dp -> (params_of_descriptor_policy dp) @ params
-        in
-
-        (* Timestamp or Expires *)
-        let toe = 
-            match t.expires_minutes with
-              | Some i -> ("Expires", Util.minutes_from_now i)
-              | None -> ("Timestamp", Util.now_as_string ())
-        in
-
-        let params = 
-          ("AWSAccessKeyId", creds.aws_access_key_id) ::
-            ("Action", "Pay") :: 
-            toe :: 
-            ("CallerReference", t.caller_reference) ::
-            ("SenderTokenId", t.sender_token_id) ::
-            ("TransactionAmount.Value", string_of_float t.transaction_amount) ::
-            ("TransactionAmount.CurrencyCode", t.currency_code ) :: params in
-
-        let params = add_opt params t.transaction_timeout_minutes 
-          (fun v -> "TransactionTimeoutInMins", string_of_int v) in
-
-        sign_request creds ~sandbox `GET params `FPS
-
-    end
-
-      module Response = struct
-        type transaction_status = [ `Cancelled | `Failure | `Pending | `Reserved | `Success ]
+    type customer_service_owner = [ `Caller | `Recipient ]
+    type soft_descriptor_type = [ `Static | `Dynamic of string ] 
+        (* [`Dynamic] -> SenderDescription *)
         
-        let transaction_status_of_string = function
-          | "Cancelled"  -> Some `Cancelled 
-          | "Failure"    -> Some `Failure 
-          | "Pending"    -> Some `Pending 
-          | "Reserved"   -> Some `Reserved 
-          | "Success"    -> Some `Success    
-          | _            -> None
+    type descriptor_policy = {
+      customer_service_owner : customer_service_owner ;
+      soft_descriptor_type : soft_descriptor_type 
+    }
 
-        let of_xml s =
-          match X.xml_of_string s with
-            | X.E ("PayResponse", _, kids) -> (
-                match kids with
-                  | X.E( "PayResult", _, kids ) :: _ -> (
-                      match kids with
-                        | [X.E("TransactionId", _, [X.P id] );
-                           X.E("TransactionStatus", _, [X.P status] ) ] -> (
-                            match transaction_status_of_string status with
-                              | None -> `Error s
-                              | Some transaction_status -> 
-                                  `Ok (id, transaction_status)
-                          )
-                        | _ -> `Error s
-                    )
-                  | _ -> `Error s
-              )
-            | _ -> `Error s
-      end
+    let string_of_customer_service_owner = function
+      | `Caller -> "Caller"
+      | `Recipient -> "Recipient"
+
+    let string_of_soft_descriptor_type = function
+      | `Static -> "Static"
+      | `Dynamic _ -> "Dynamic"
+
+    let params_of_descriptor_policy dp =
+      let params =
+        match dp.soft_descriptor_type with
+          | `Dynamic sender_description ->
+              ["SenderDescription", sender_description]
+          | `Static -> []
+      in
+
+      ["DescriptorPolicy.CSOwner", 
+       string_of_customer_service_owner dp.customer_service_owner;
+       "DescriptorPolicy.SoftDescriptorType", 
+       string_of_soft_descriptor_type dp.soft_descriptor_type
+      ] @ params
+
+    type t = {
+      caller_description : string option;
+      caller_reference : string;
+      descriptor_policy : descriptor_policy option;
+      sender_token_id : string;
+      transaction_amount : float;
+      currency_code : string;
+      transaction_timeout_minutes : int option;
+      expires_minutes : int option
+    }
+
+    let create ~sender_token_id ~transaction_amount ~caller_reference = {
+      caller_description = None;
+      caller_reference;
+      descriptor_policy = None;
+      sender_token_id;
+      transaction_amount;
+      currency_code = "USD";
+      transaction_timeout_minutes = None;
+      expires_minutes = None;
+    }
+
+    let to_url creds ?(sandbox=false) t =
+      let params = fps_signature_params in
+      let params = 
+        match t.descriptor_policy with
+          | None -> params 
+          | Some dp -> (params_of_descriptor_policy dp) @ params
+      in
+
+      (* Timestamp or Expires *)
+      let toe = 
+        match t.expires_minutes with
+          | Some i -> ("Expires", Util.minutes_from_now i)
+          | None -> ("Timestamp", Util.now_as_string ())
+      in
+
+      let params = 
+        ("AWSAccessKeyId", creds.aws_access_key_id) ::
+          ("Action", "Pay") :: 
+          toe :: 
+          ("CallerReference", t.caller_reference) ::
+          ("SenderTokenId", t.sender_token_id) ::
+          ("TransactionAmount.Value", string_of_float t.transaction_amount) ::
+          ("TransactionAmount.CurrencyCode", t.currency_code ) :: params in
+
+      let params = add_opt params t.transaction_timeout_minutes 
+        (fun v -> "TransactionTimeoutInMins", string_of_int v) in
+
+      sign_request creds ~sandbox `GET params `FPS
+
+
+    type transaction_status = [ `Cancelled | `Failure | `Pending | `Reserved | `Success ]
+        
+    let transaction_status_of_string = function
+      | "Cancelled"  -> Some `Cancelled 
+      | "Failure"    -> Some `Failure 
+      | "Pending"    -> Some `Pending 
+      | "Reserved"   -> Some `Reserved 
+      | "Success"    -> Some `Success    
+      | _            -> None
+
+    let of_xml s =
+      match X.xml_of_string s with
+        | X.E ("PayResponse", _, kids) -> (
+            match kids with
+              | X.E( "PayResult", _, kids ) :: _ -> (
+                  match kids with
+                    | [X.E("TransactionId", _, [X.P id] );
+                       X.E("TransactionStatus", _, [X.P status] ) ] -> (
+                        match transaction_status_of_string status with
+                          | None -> `Error s
+                          | Some transaction_status -> 
+                              `Ok (id, transaction_status)
+                      )
+                    | _ -> `Error s
+                )
+              | _ -> `Error s
+          )
+        | _ -> `Error s
+
+
+    let call creds ?alt_scheme ?alt_host ?alt_port ?(sandbox=false) t =
+      let u = to_url creds ~sandbox t in
+      (* make sure the http client uses the ultimate target host as the value of
+         the ["Host"] header, when [alt_host] is provided *)
+      let headers =
+        match alt_host with
+          | Some _ -> ["Host", u.host ]
+          | None -> []
+      in
+
+      let u = modify_url_endpoint u alt_scheme alt_host alt_port in
+      let u_s = string_of_url u in
+
+      try_lwt
+        lwt _, body = HC.get ~headers u_s in
+        return (of_xml body)
+      with HC.Http_error (_,_,msg) -> 
+        return (`Error msg)
 
   end
 
 end
-          
+  
 module VerifySignature =
 struct 
 
-  let request_to_url creds ?(sandbox=false) url_endpoint http_params =
-    let http_params = String.concat "&" (Aws_util.encode_key_equals_value http_params) in
-    let params = [
-      "Timestamp", Util.now_as_string ();
-      "AWSAccessKeyId", creds.aws_access_key_id;
-      "HttpParameters", http_params;
-      "UrlEndPoint", url_endpoint;
-      "Action", "VerifySignature"
-    ] @ fps_signature_params in
-    sign_request creds ~sandbox `GET params `FPS
-      
-  let response_of_xml s =
+  let of_xml s =
     match X.xml_of_string s with
       | X.E ("VerifySignatureResponse", _, kids) -> (
           match kids with
@@ -508,5 +571,30 @@ struct
         )
       | _ -> `Error s
 
+  let call creds ?alt_scheme ?alt_host ?alt_port ?(sandbox=false) url_endpoint http_params =
+    let http_params = String.concat "&" (Aws_util.encode_key_equals_value http_params) in
+    let params = [
+      "Timestamp", Util.now_as_string ();
+      "AWSAccessKeyId", creds.aws_access_key_id;
+      "HttpParameters", http_params;
+      "UrlEndPoint", url_endpoint;
+      "Action", "VerifySignature"
+    ] @ fps_signature_params in
+    let u = sign_request creds ~sandbox `GET params `FPS in
+    let u' = modify_url_endpoint u alt_scheme alt_host alt_port in
+    let u_s = string_of_url u' in
+
+    let headers =
+      match alt_host with
+        | Some _ -> ["Host", u.host ]
+        | None -> []
+    in
+
+    try_lwt
+      lwt _, body = HC.get ~headers u_s in
+      return (of_xml body)
+    with HC.Http_error (_,_,msg) -> 
+      return (`Error msg)
+      
 end
 

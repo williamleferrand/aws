@@ -1,3 +1,6 @@
+type scheme = [`HTTP | `HTTPS]
+    (* http scheme *)
+
 type cobranding_style = [ `banner | `logo ]
 type payment_method = [ `ABT | `ACH | `CC ]
 
@@ -65,42 +68,44 @@ sig
       val of_url : string -> t option
     end
   end
+
   module Pay :
   sig
-    module Request :
-    sig
-      type customer_service_owner = [ `Caller | `Recipient ]
-      type soft_descriptor_type = [ `Dynamic of string | `Static ]
-      type descriptor_policy = {
-        customer_service_owner : customer_service_owner;
-        soft_descriptor_type : soft_descriptor_type;
-      }
-      type t = {
-        caller_description : string option;
-        caller_reference : string;
-        descriptor_policy : descriptor_policy option;
-        sender_token_id : string;
-        transaction_amount : float;
-        currency_code : string;
-        transaction_timeout_minutes : int option;
-        expires_minutes : int option;
-      }
+    type customer_service_owner = [ `Caller | `Recipient ]
+    type soft_descriptor_type = [ `Dynamic of string | `Static ]
 
-      val create :
-        sender_token_id:string ->
-        transaction_amount:float -> caller_reference:string -> t
+    type descriptor_policy = {
+      customer_service_owner : customer_service_owner;
+      soft_descriptor_type : soft_descriptor_type;
+    }
 
-      val to_url : Creds.t -> ?sandbox:bool -> t -> string
-    end
+    type t = {
+      caller_description : string option;
+      caller_reference : string;
+      descriptor_policy : descriptor_policy option;
+      sender_token_id : string;
+      transaction_amount : float;
+      currency_code : string;
+      transaction_timeout_minutes : int option;
+      expires_minutes : int option;
+    }
 
-    module Response :
-    sig
-      type transaction_status =
-          [ `Cancelled | `Failure | `Pending | `Reserved | `Success ]
+    type transaction_status =
+        [ `Cancelled | `Failure | `Pending | `Reserved | `Success ]
 
-      val of_xml :
-        string -> [ `Error of string | `Ok of string * transaction_status ]
-    end
+    val create :
+      sender_token_id:string ->
+      transaction_amount:float -> caller_reference:string -> t
+
+    (* [alt_{scheme,host,port}] used to make things work with stunnel *)
+    val call : 
+      Creds.t ->
+      ?alt_scheme:scheme ->
+      ?alt_host:string ->
+      ?alt_port:int ->
+      ?sandbox:bool ->
+      t ->
+      [ `Error of string | `Ok of string * transaction_status ] Lwt.t
 
   end
 
@@ -109,9 +114,14 @@ end
 
 module VerifySignature : 
 sig
-  val request_to_url : Creds.t -> ?sandbox:bool -> string -> 
-    (string * string) list -> string
 
-  val response_of_xml : string -> [> `Error of string | `Failure | `Success ]
+  (* [alt_{scheme,host,port}] used to make things work with stunnel *)
+  val call : Creds.t -> 
+    ?alt_scheme:scheme -> 
+    ?alt_host:string -> 
+    ?alt_port:int -> 
+    ?sandbox:bool -> string -> (string * string) list -> 
+    [ `Error of string | `Failure | `Success ] Lwt.t
+
 end
 
