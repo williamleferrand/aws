@@ -30,3 +30,11 @@ Library "aws-cohttp"
   Path: lib
   Modules: EC2, SDB, S3, SQS
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp
+
+Executable backup
+  Path:         tools
+  MainIs:       backup.ml
+  Install:      false
+  ByteOpt: -thread
+  NativeOpt: -thread
+  BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
