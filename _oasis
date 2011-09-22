@@ -38,3 +38,12 @@ Executable backup
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
+
+
+Executable listdomain
+  Path:         tools
+  MainIs:       listdomain.ml
+  Install:      false
+  ByteOpt: -thread
+  NativeOpt: -thread
+  BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
