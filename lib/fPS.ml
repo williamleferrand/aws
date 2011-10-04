@@ -366,7 +366,7 @@ struct
       type t = {
         signature_info : signature_info;
         params : (string * string) list;
-        result : [ `Error of string | `Token of tok ]
+        result : [ `Bad of string | `Token of tok ]
       }
 
       let signature_info params =
@@ -382,6 +382,7 @@ struct
           | Not_found -> None (* some required parameter is not found *)
           | Failure _ -> None (* int_of_string failed *)
 
+
       let of_url uri =
         let params = Aws_util.url_params uri in
         match signature_info params with
@@ -390,7 +391,7 @@ struct
               let find_opt x = try Some (List.assoc x params) with Not_found -> None in
               match find_opt "errorMessage" with
                 | Some msg ->
-                    Some { signature_info; params; result = `Error msg }
+                    Some { signature_info; params; result = `Bad msg }
                 | None -> (
 
                     match find_opt "tokenID" with
@@ -507,23 +508,150 @@ struct
       | "Success"    -> Some `Success    
       | _            -> None
 
+
+    type error = [
+    | `AccessFailure
+    | `AccountLimitsExceeded
+    | `AmountOutOfRange
+    | `AuthFailure 
+    | `DuplicateRequest 
+    | `IncompatibleTokens
+    | `InsufficientBalance
+    | `InternalError
+    | `InvalidAccountState_Caller
+    | `InvalidAccountState_Recipient
+    | `InvalidAccountState_Sender
+    | `InvalidClientTokenId 
+    | `InvalidParams 
+    | `InvalidTokenId_Sender
+    | `SameSenderAndRecipient
+    | `SignatureDoesNotMatch 
+    | `TokenNotActive_Sender
+    | `TransactionDenied
+    | `UnverifiedAccount_Recipient
+    | `UnverifiedAccount_Sender
+    | `UnverifiedBankAccount
+    | `UnverifiedEmailAddress_Caller
+    | `UnverifiedEmailAddress_Recipient
+    | `UnverifiedEmailAddress_Sender            
+    ]
+
+    let string_of_error = function
+    | `AccessFailure                    -> "AccessFailure"                     
+    | `AccountLimitsExceeded            -> "AccountLimitsExceeded"             
+    | `AmountOutOfRange                 -> "AmountOutOfRange"                  
+    | `AuthFailure                      -> "AuthFailure"                       
+    | `DuplicateRequest                 -> "DuplicateRequest"                  
+    | `IncompatibleTokens               -> "IncompatibleTokens"                
+    | `InsufficientBalance              -> "InsufficientBalance"               
+    | `InternalError                    -> "InternalError"                     
+    | `InvalidAccountState_Caller       -> "InvalidAccountState_Caller"        
+    | `InvalidAccountState_Recipient    -> "InvalidAccountState_Recipient"     
+    | `InvalidAccountState_Sender       -> "InvalidAccountState_Sender"        
+    | `InvalidClientTokenId             -> "InvalidClientTokenId"              
+    | `InvalidParams                    -> "InvalidParams"                     
+    | `InvalidTokenId_Sender            -> "InvalidTokenId_Sender"             
+    | `SameSenderAndRecipient           -> "SameSenderAndRecipient"            
+    | `SignatureDoesNotMatch            -> "SignatureDoesNotMatch"             
+    | `TokenNotActive_Sender            -> "TokenNotActive_Sender"             
+    | `TransactionDenied                -> "TransactionDenied"                 
+    | `UnverifiedAccount_Recipient      -> "UnverifiedAccount_Recipient"       
+    | `UnverifiedAccount_Sender         -> "UnverifiedAccount_Sender"          
+    | `UnverifiedBankAccount            -> "UnverifiedBankAccount"             
+    | `UnverifiedEmailAddress_Caller    -> "UnverifiedEmailAddress_Caller"     
+    | `UnverifiedEmailAddress_Recipient -> "UnverifiedEmailAddress_Recipient"  
+    | `UnverifiedEmailAddress_Sender    -> "UnverifiedEmailAddress_Sender"           
+
+
+    let error_of_string = function
+      | "AccessFailure"                     -> Some `AccessFailure                       
+      | "AccountLimitsExceeded"             -> Some `AccountLimitsExceeded               
+      | "AmountOutOfRange"                  -> Some `AmountOutOfRange                    
+      | "AuthFailure"                       -> Some `AuthFailure 
+      | "DuplicateRequest"                  -> Some `DuplicateRequest 
+      | "IncompatibleTokens"                -> Some `IncompatibleTokens                  
+      | "InsufficientBalance"               -> Some `InsufficientBalance                 
+      | "InternalError"                     -> Some `InternalError                       
+      | "InvalidAccountState_Caller"        -> Some `InvalidAccountState_Caller          
+      | "InvalidAccountState_Recipient"     -> Some `InvalidAccountState_Recipient       
+      | "InvalidAccountState_Sender"        -> Some `InvalidAccountState_Sender          
+      | "InvalidClientTokenId"              -> Some `InvalidClientTokenId 
+      | "InvalidParams"                     -> Some `InvalidParams 
+      | "InvalidTokenId_Sender"             -> Some `InvalidTokenId_Sender               
+      | "SameSenderAndRecipient"            -> Some `SameSenderAndRecipient              
+      | "SignatureDoesNotMatch"             -> Some `SignatureDoesNotMatch 
+      | "TokenNotActive_Sender"             -> Some `TokenNotActive_Sender               
+      | "TransactionDenied"                 -> Some `TransactionDenied                   
+      | "UnverifiedAccount_Recipient"       -> Some `UnverifiedAccount_Recipient         
+      | "UnverifiedAccount_Sender"          -> Some `UnverifiedAccount_Sender            
+      | "UnverifiedBankAccount"             -> Some `UnverifiedBankAccount               
+      | "UnverifiedEmailAddress_Caller"     -> Some `UnverifiedEmailAddress_Caller       
+      | "UnverifiedEmailAddress_Recipient"  -> Some `UnverifiedEmailAddress_Recipient    
+      | "UnverifiedEmailAddress_Sender"     -> Some `UnverifiedEmailAddress_Sender       
+      | _                                   -> None
+
+    let is_error_fatal = function
+      | `AuthFailure 
+      | `DuplicateRequest 
+      | `InvalidClientTokenId 
+      | `InvalidParams 
+      | `SignatureDoesNotMatch -> true
+      | _ -> false
+
+
+    (* bad outcome *)
+    let error_of_xml = function
+      | X.E("Error", _, kids) -> (
+          match kids with
+            | X.E("Code", _, [X.P code] ) :: _ -> (
+                match error_of_string code with
+                  | Some err -> Some err
+                  | None -> None
+              )
+            | _ -> None
+        )
+      | _ -> None
+
+    let errors_of_xml s kids =
+      let have_parse_error, errors = List.fold_left (
+        fun (have_parse_error, errors) node ->
+          match error_of_xml node with
+            | None -> true, errors
+            | Some e -> have_parse_error, e :: errors
+      ) (false, []) kids in
+      if have_parse_error then
+        `Error s
+      else
+        `Bad errors
+
+    let response_of_xml s = function
+      | X.E("Errors", _, kids ) :: _ ->
+          errors_of_xml s kids
+      | _ -> `Error s
+
+    (* good outcome *)
+    let pay_response_of_xml s = function
+      | X.E("PayResult", _, kids ) :: _ -> (
+          match kids with
+            | [X.E("TransactionId", _, [X.P id] );
+               X.E("TransactionStatus", _, [X.P status] ) ] -> (
+                match transaction_status_of_string status with
+                  | None -> `Error s
+                  | Some transaction_status -> 
+                      `Ok (id, transaction_status)
+              )
+            | _ -> `Error s
+        )
+      | _ -> `Error s
+
     let of_xml s =
       match X.xml_of_string s with
-        | X.E ("PayResponse", _, kids) -> (
-            match kids with
-              | X.E( "PayResult", _, kids ) :: _ -> (
-                  match kids with
-                    | [X.E("TransactionId", _, [X.P id] );
-                       X.E("TransactionStatus", _, [X.P status] ) ] -> (
-                        match transaction_status_of_string status with
-                          | None -> `Error s
-                          | Some transaction_status -> 
-                              `Ok (id, transaction_status)
-                      )
-                    | _ -> `Error s
-                )
-              | _ -> `Error s
-          )
+        | X.E ("PayResponse", _, kids) ->
+            pay_response_of_xml s kids
+
+        | X.E ("Response", _, kids ) ->
+            response_of_xml s kids
+
         | _ -> `Error s
 
 
@@ -544,7 +672,8 @@ struct
         lwt _, body = HC.get ~headers u_s in
         return (of_xml body)
       with HC.Http_error (_,_,msg) -> 
-        return (`Error msg)
+        (* error condition with a http return code <> 200? perhaps *)
+        return (of_xml msg)
 
   end
 
@@ -553,22 +682,55 @@ end
 module VerifySignature =
 struct 
 
+  type error = [
+    | `InvalidParams of string
+    | `InternalServerError 
+  ]
+
+  let string_of_error = function
+    | `InvalidParams msg -> sprintf "(InvalidParams %s)" msg
+    | `InternalServerError -> "InternalServerError"
+
+  let error_of_xml s = function
+    | X.E ("Code", _, [X.P "InvalidParams"]) :: X.E ("Message", _, [X.P message]) :: _ ->
+        `Bad (`InvalidParams message)
+    | X.E ("Code", _, [X.P "InternalServerError"]) :: _ ->
+        `Bad `InternalServerError
+    | _ -> `Error s
+
+  let errors_of_xml s = function
+    | X.E ("Error", _, kids ) :: _ ->
+        error_of_xml s kids
+    | _ -> `Error s
+
+  let response_of_xml s = function
+    | X.E ("Errors", _, kids ) :: _ ->
+        errors_of_xml s kids
+    | _ -> `Error s
+
+
+  (* good *)
+  let verify_signature_response_of_xml s = function
+    | X.E ("VerifySignatureResult", _, kids) :: _  -> (
+        match kids with
+          | X.E ("VerificationStatus", _, [kid]) :: _ -> (
+              match kid with
+                | X.P "Success" -> `Success
+                | X.P "Failure" -> `Failure
+                | _ -> `Error s
+            )
+          | _ -> `Error s
+      )
+    | _ -> `Error s
+
   let of_xml s =
     match X.xml_of_string s with
-      | X.E ("VerifySignatureResponse", _, kids) -> (
-          match kids with
-            | X.E ("VerifySignatureResult", _, kids) :: _  -> (
-                match kids with
-                  | X.E ("VerificationStatus", _, [kid]) :: _ -> (
-                      match kid with
-                        | X.P "Success" -> `Success
-                        | X.P "Failure" -> `Failure
-                        | _ -> `Error s
-                    )
-                  | _ -> `Error s
-              )
-            | _ -> `Error s
-        )
+      | X.E ("VerifySignatureResponse", _, kids) ->
+          verify_signature_response_of_xml s kids
+
+      | X.E ("Reponse", _, kids) ->
+          response_of_xml s kids
+
       | _ -> `Error s
 
   let call creds ?alt_scheme ?alt_host ?alt_port ?(sandbox=false) url_endpoint http_params =

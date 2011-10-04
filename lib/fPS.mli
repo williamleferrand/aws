@@ -63,7 +63,7 @@ sig
       type t = {
         signature_info : signature_info;
         params : (string * string) list;
-        result : [ `Error of string | `Token of tok ];
+        result : [ `Bad of string | `Token of tok ];
       }
       val of_url : string -> t option
     end
@@ -97,6 +97,43 @@ sig
       sender_token_id:string ->
       transaction_amount:float -> caller_reference:string -> t
 
+    (* errors returned by the Pay call; those with comment "fatal" are a
+       result of software bugs or configuration problems, and can be
+       considered as fatal, in the sense that they are likely to
+       continue to occur without intervention.  use the
+       [is_error_fatal] function to classify it *)
+
+    type error = [
+    | `AccessFailure
+    | `AccountLimitsExceeded
+    | `AmountOutOfRange
+    | `AuthFailure (* fatal *)
+    | `DuplicateRequest (* fatal *)
+    | `IncompatibleTokens
+    | `InsufficientBalance
+    | `InternalError
+    | `InvalidAccountState_Caller
+    | `InvalidAccountState_Recipient
+    | `InvalidAccountState_Sender
+    | `InvalidClientTokenId (* fatal *)
+    | `InvalidParams (* fatal *)
+    | `InvalidTokenId_Sender
+    | `SameSenderAndRecipient
+    | `SignatureDoesNotMatch (* fatal *)
+    | `TokenNotActive_Sender
+    | `TransactionDenied
+    | `UnverifiedAccount_Recipient
+    | `UnverifiedAccount_Sender
+    | `UnverifiedBankAccount
+    | `UnverifiedEmailAddress_Caller
+    | `UnverifiedEmailAddress_Recipient
+    | `UnverifiedEmailAddress_Sender
+    ]
+
+    val string_of_error : error -> string
+
+    val is_error_fatal : error -> bool
+
     (* [alt_{scheme,host,port}] used to make things work with stunnel *)
     val call : 
       Creds.t ->
@@ -105,7 +142,11 @@ sig
       ?alt_port:int ->
       ?sandbox:bool ->
       t ->
-      [ `Error of string | `Ok of string * transaction_status ] Lwt.t
+      [ 
+      | `Ok of string * transaction_status (* good! *)
+      | `Error of string (* failed to parse response *)
+      | `Bad of error list (* some FPS error code *)
+      ] Lwt.t
 
   end
 
@@ -115,13 +156,20 @@ end
 module VerifySignature : 
 sig
 
+  type error = [
+    | `InvalidParams of string
+    | `InternalServerError 
+  ]
+
+  val string_of_error : error -> string
+
   (* [alt_{scheme,host,port}] used to make things work with stunnel *)
   val call : Creds.t -> 
     ?alt_scheme:scheme -> 
     ?alt_host:string -> 
     ?alt_port:int -> 
     ?sandbox:bool -> string -> (string * string) list -> 
-    [ `Error of string | `Failure | `Success ] Lwt.t
+    [ `Error of string | `Bad of error | `Failure | `Success ] Lwt.t
 
 end
 
