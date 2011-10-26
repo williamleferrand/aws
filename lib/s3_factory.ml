@@ -693,10 +693,27 @@ object
   method display_name : string = display_name
 end
 
+type group = [
+| `AllUsers
+| `Authenticated
+| `LogDelivery
+]
+
+let string_of_group = function
+  | `AllUsers      -> "http://acs.amazonaws.com/groups/global/AllUsers"
+  | `Authenticated -> "http://acs.amazonaws.com/groups/global/Authenticated"
+  | `LogDelivery   -> "http://acs.amazonaws.com/groups/s3/LogDelivery"
+
+let group_of_string = function
+  | "http://acs.amazonaws.com/groups/global/AllUsers"      -> `AllUsers
+  | "http://acs.amazonaws.com/groups/global/Authenticated" -> `Authenticated
+  | "http://acs.amazonaws.com/groups/s3/LogDelivery"       -> `LogDelivery
+  | x -> raise (Error (sprintf "invalid group %S" x))
+
 type identity = [ 
 | `amazon_customer_by_email of string
 | `canonical_user of canonical_user
-| `group of string 
+| `group of group
 ]
 
 type grant = identity * permission
@@ -707,11 +724,10 @@ object
   method grants : grant list = grants
 end
 
-
 let string_of_identity = function
 | `amazon_customer_by_email em -> "AmazonCustomerByEmail " ^ em
 | `canonical_user cn -> sprintf "CanonicalUser (%s,%s)" cn#id cn#display_name
-| `group g -> "Group " ^ g
+| `group g -> "Group " ^ (string_of_group g)
 
 let tag_of_identity = function 
 | `amazon_customer_by_email _ -> "AmazonCustomerByEmail"
@@ -728,7 +744,7 @@ let identity_of_xml = function
     `amazon_customer_by_email email_address
 
   | [X.E ("URI",_,[X.P group])] ->
-    `group group
+    `group (group_of_string group)
 
   | _ ->
     raise (Error "grantee")
@@ -796,8 +812,8 @@ let xml_of_identity = function
     [X.E ("ID",[],[X.P cn#id]);
      X.E ("DisplayName",[],[X.P cn#display_name])]
 
-  | `group uri ->
-    [X.E("URI",[],[X.P uri])]
+  | `group group ->
+    [X.E("URI",[],[X.P (string_of_group group)])]
 
 let xml_of_grantee identity = 
   let identity_x = xml_of_identity identity in
