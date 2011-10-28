@@ -8,6 +8,7 @@ type canonical_user_id = string
 type principals = [
 | `AWS of aws_account_id list
 | `CanonicalUserId of canonical_user_id list
+| `Everyone
 ]
 
 type ('a, 'b) statement = {
@@ -123,6 +124,8 @@ and json_of_principals = function
       `Assoc [
         "CanonicalUser", `List (List.map (fun cid -> `String cid) canonical_user_ids)
       ]
+  | `Everyone ->
+      `Assoc ["AWS", `String "*"]
 
 and json_of_s3_action action =
   `String (string_of_s3_action action)

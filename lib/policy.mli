@@ -6,6 +6,7 @@ type canonical_user_id = string
 type principals = [
 | `AWS of aws_account_id list
 | `CanonicalUserId of canonical_user_id list
+| `Everyone
 ]
 
 type ('a, 'b) statement = {
