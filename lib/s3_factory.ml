@@ -100,6 +100,27 @@ let group_by_key kv_list =
       (k, v_list) :: accu
   ) map []
 
+let find_element kids key = 
+  try
+    Some (
+      List.find (
+        fun kid -> 
+          match kid with
+            | X.E ( k, _, _ ) when k = key -> true
+            | _ -> false
+      ) kids
+    )
+  with Not_found ->
+    None
+
+(* get the data of an X.P child node of a node in [kids] whose tag is
+   [key] *)
+let find_p_child_fail kids key =
+  match find_element kids key with
+    | None -> raise (Error ("\"" ^ key ^ "\" not found"))
+    | Some (X.E( _, _, [X.P data])) -> data
+    | Some _ -> raise (Error ("\"" ^ key ^ "\" doesn't have data child"))
+
 (* replace a substring of whitespace with a single space *)
 let squash_whitespace = 
   Pcre.replace ~rex:(Pcre.regexp "[[:space:]]+") ~templ:" "
@@ -232,18 +253,6 @@ let auth_hdr
   let signature = sign creds.Creds.aws_secret_access_key string_to_sign in
   "Authorization", sprintf "AWS %s:%s" creds.Creds.aws_access_key_id signature
 
-let find_element kids key = 
-  try
-    Some (
-      List.find (
-        fun kid -> 
-          match kid with
-            | X.E ( k, _, _ ) when k = key -> true
-            | _ -> false
-      ) kids
-    )
-  with Not_found ->
-    None
 
 let error_msg body =
   
@@ -572,60 +581,76 @@ let option_pcdata err = function
 
 let rec list_bucket_result_of_xml = function
   | X.E ("ListBucketResult",_,kids) -> (
-    match kids with 
-      | X.E ("Name",_,[X.P name]) ::
-          X.E ("Prefix",_,prefix_opt) ::
-          X.E ("Marker",_,marker_opt) ::
-          X.E ("MaxKeys",_,[X.P max_keys]) ::
-          X.E ("IsTruncated",_,[X.P is_truncated]) ::
-          contents ->
+      match kids with 
+        | X.E ("Name",_,[X.P name]) ::
+            X.E ("Prefix",_,prefix_opt) ::
+            X.E ("Marker",_,marker_opt) ::
+            X.E ("MaxKeys",_,[X.P max_keys]) ::
+            X.E ("IsTruncated",_,[X.P is_truncated]) ::
+            contents ->
 
-        let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
-        let marker_opt = option_pcdata "ListBucketResult:marker" marker_opt in
-        let max_keys = int_of_string max_keys in
-        let is_truncated = bool_of_string is_truncated in
-        let contents = contents_of_xml contents in
+            let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
+            let marker_opt = option_pcdata "ListBucketResult:marker" marker_opt in
+            let max_keys = int_of_string max_keys in
+            let is_truncated = bool_of_string is_truncated in
+            let contents = contents_of_xml contents in
 
-        (object 
-          method name = name
-          method prefix = prefix_opt
-          method marker = marker_opt
-          method max_keys = max_keys
-          method is_truncated = is_truncated
-          method objects = contents
-         end)
-      | _ ->
-        raise (Error "ListBucketResult:k")
-  )
+            (object 
+               method name = name
+               method prefix = prefix_opt
+               method marker = marker_opt
+               method max_keys = max_keys
+               method is_truncated = is_truncated
+               method objects = contents
+             end)
+        | _ ->
+            raise (Error "ListBucketResult:k")
+    )
   | _ ->
-    raise (Error "ListBucketResult:t")
+      raise (Error "ListBucketResult:t")
 
 and contents_of_xml contents =
   List.map objects_of_xml contents
 
 and objects_of_xml = function
-  | X.E ("Contents",_, [
-    X.E ("Key",_,[X.P name]);
-    X.E ("LastModified",_,[X.P last_modified_s]);
-    X.E ("ETag",_,[X.P etag]);
-    X.E ("Size",_,[X.P size]);
-    X.E ("Owner",_,[
-           X.E ("ID",_,[X.P owner_id]);
-           X.E ("DisplayName",_,[X.P owner_display_name])
-         ]);
-    X.E ("StorageClass",_,[X.P storage_class])
-  ]) ->
-    let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
-    let size = int_of_string size in
-    (object 
-      method name = name
-      method last_modified = last_modified
-      method etag = etag
-      method size = size
-      method storage_class = storage_class 
-      method owner_id = owner_id
-      method owner_display_name = owner_display_name
-     end)
+  | X.E ("Contents",_, kids ) ->
+      let key = find_p_child_fail kids "Key" in 
+      let etag = find_p_child_fail kids "ETag" in
+      let size = find_p_child_fail kids "Size" in
+      let storage_class = find_p_child_fail kids "StorageClass" in
+      let last_modified = find_p_child_fail kids "LastModified" in
+
+      let identity =
+        match find_element kids "Owner" with
+          | Some (
+              X.E (
+                "Owner",_,[
+                  X.E ("ID",_,[X.P owner_id]);
+                  X.E ("DisplayName",_,[X.P owner_display_name])
+                ]
+              )
+            ) ->
+              Some (
+                object 
+                  method id = owner_id
+                  method display_name = owner_display_name
+                end
+              )
+          | Some _ ->
+              raise (Error "ListBucket: owner")
+
+          | None -> None
+      in
+      let last_modified = Util.unixfloat_of_amz_date_string last_modified in
+      let size = int_of_string size in
+      (object 
+         method name = key
+         method last_modified = last_modified
+         method etag = etag
+         method size = size
+         method storage_class = storage_class 
+         method owner = identity
+       end)
   | _ -> raise (Error "ListBucketResult:c")
     
 

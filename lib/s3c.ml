@@ -168,8 +168,8 @@ let list_objects creds region bucket () =
               o#etag 
               o#size 
               o#storage_class 
-              o#owner_id 
-              o#owner_display_name
+              (match o#owner with Some owner -> owner#id | None -> "--")
+              (match o#owner with Some owner -> owner#display_name | None -> "--")
         ) res#objects;
         0
       | `NotFound -> printf "bucket %s not found\n%!" bucket; 1
