@@ -530,6 +530,7 @@ let run_instances
     ?region
     ?placement_group
     ?instance_type
+    ?(security_groups=[]) (* secruity group names, not id's *)
     creds 
     ~image_id 
     ~min_count 
@@ -549,6 +550,10 @@ let run_instances
   let args = augment_opt (fun kn -> "KeyName", kn) args key_name in
   let args = augment_opt (fun it -> "InstanceType", string_of_instance_type it) 
     args instance_type in
+  let sg = Util.list_map_i (
+    fun i security_group -> sprint "SecurityGroup.%d" i, security_group ) security_groups in
+  let args = args @ sg in
+
   let request = signed_request creds ?expires_minutes ?region args in
   try_lwt 
     lwt header, body = HC.get request in
