@@ -310,14 +310,26 @@ let terminate_instances_of_xml = function
     List.map item_of_xml items
   | _ -> raise (Error "TerminateInstancesResponse")
 
+type error = [
+| `Error of (string * string) (* [code,message] *)
+| `InsufficientInstanceCapacity of string
+]
+
+ (* generic error *)
 let error_msg body =
   match X.xml_of_string body with
     | X.E ("Response",_,(X.E ("Errors",_,[X.E ("Error",_,[
       X.E ("Code",_,[X.P code]);
       X.E ("Message",_,[X.P message])
-    ])]))::_) ->
-      `Error message
-  
+    ])]))::_) -> (
+        match code with
+          | "InsufficientInstanceCapacity" ->
+              `InsufficientInstanceCapacity message
+          | _ ->
+              (* haven't cataloged' all error messages *)
+              `Error (code, message)
+      )
+
   | _ -> raise (Error "Response.Errors.Error")
 
 let instance_id_args instance_ids =
@@ -337,7 +349,7 @@ let terminate_instances ?expires_minutes ?region creds instance_ids =
     return (`Ok  (terminate_instances_of_xml xml))
   with 
     | HC.Http_error (_,_,body) ->
-      return (error_msg body)
+        return (error_msg body)
 
 (* describe instances *)
 type instance = <
