@@ -569,7 +569,7 @@ let get_object_metadata creds region ~bucket ~objekt =
     return (`Ok meta)
   with 
     | HC.Http_error (404,_, _   ) -> return `NotFound
-    | HC.Http_error (301,_, body) -> permanent_redirect_of_string body
+    | HC.Http_error (301,_, body) -> return `PermanentRedirect
     | HC.Http_error (_  ,_, body) -> error_msg body
 
   
