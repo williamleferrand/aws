@@ -800,4 +800,93 @@ let cancel_spot_instance_requests ?region creds sir_ids =
   with 
     | HC.Http_error (_,_,body) -> return (error_msg body)
 
-end
+
+let tag_set_item_of_xml = function
+  | X.E("item", _, kids ) -> (
+      match kids with
+        | [X.E("resourceId", _, [X.P resource_id]);
+           X.E("resourceType", _, [X.P resource_type]);
+           X.E("key", _, [X.P key]);
+           X.E("value", _, value_opt );
+          ] -> (
+            let value_opt = 
+              match value_opt with
+                | [] -> None
+                | [X.P value] -> Some value
+                | _ -> raise (Error "tagSet.item:1")
+            in
+            object 
+              method resource_id = resource_id
+              method resource_type = resource_type
+              method key = key
+              method value_opt = value_opt
+            end
+          )
+        | _ ->
+            raise (Error "tagSet.item:2")
+    )
+  | _ -> raise (Error "tagSet.item:3")
+
+let describe_tags_response_of_xml = function
+  | X.E("DescribeTagsResponse", _, kids ) -> (
+      match find_kids kids "tagSet" with
+        | Some tag_set_items  -> List.map tag_set_item_of_xml tag_set_items 
+        | None -> raise (Error "DescribeTagsResponse:1")
+    )
+  | _ -> raise (Error "DescribeTagsResponse:2")
+
+let describe_tags creds = (* TODO filters *)
+  let args = ["Action","DescribeTags"] in
+  let request = signed_request creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    let xml = X.xml_of_string body in
+    let items = describe_tags_response_of_xml xml in
+    return (`Ok items)
+  with
+    | HC.Http_error (_,_,body) -> return (error_msg body)
+
+
+let create_tags creds tags =
+  let args = ["Action", "CreateTags"] in
+  let _, args = List.fold_left (
+    fun (count, accu) tag ->
+      let resource = sprint "ResourceId.%d" count, tag#resource_id in
+      let key = sprint "Tag.%d.Key" count, tag#key in
+      let value = sprint "Tag.%d.Value" count, 
+        (match tag#value_opt with
+          | None -> "" 
+          | Some value -> value
+        ) in
+      count+1, resource :: key :: value :: accu
+  ) (0, args) tags in
+  let request = signed_request creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    return `Ok
+  with
+    | HC.Http_error (_,_,body) -> return (error_msg body)
+  
+let delete_tags creds tags =
+  let args = ["Action", "DeleteTags"] in
+  let _,  args = List.fold_left (
+    fun (count, accu) tag ->
+      let resource = sprint "ResourceId.%d" count, tag#resource_id in
+      let key = sprint "Tag.%d.Key" count, tag#key in
+      let accu' =
+        if tag#empty_value then
+          let value = sprint "Tag.%d.Value" count, "" in
+          value :: resource :: key :: accu
+        else
+          resource :: key :: accu
+      in
+      count+1, accu'
+  ) (0, args) tags in
+  let request = signed_request creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    return `Ok
+  with
+    | HC.Http_error (_,_,body) -> return (error_msg body)
+
+end  
