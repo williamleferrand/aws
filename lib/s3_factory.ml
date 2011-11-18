@@ -14,11 +14,18 @@ module Util = Aws_util
 
 let sprintf = Printf.sprintf
 
-type region = [ `US_EAST_1 | `US_WEST_1 | `EU_WEST_1 | `AP_SOUTHEAST_1 | `AP_NORTHEAST_1 ]
+type region = [ 
+| `US_EAST_1 
+| `US_WEST_1 
+| `US_WEST_2 
+| `EU_WEST_1 
+| `AP_SOUTHEAST_1 
+| `AP_NORTHEAST_1 ]
 
 let string_of_region = function 
   | `US_EAST_1      -> "us-east-1"
   | `US_WEST_1      -> "us-west-1"
+  | `US_WEST_2      -> "us-west-2"
   | `EU_WEST_1      -> "eu-west-1"
   | `AP_SOUTHEAST_1 -> "ap-southeast-1"
   | `AP_NORTHEAST_1 -> "ap-northeast-1"
@@ -26,6 +33,7 @@ let string_of_region = function
 let region_of_string = function 
   | "us-east-1"        -> `US_EAST_1      
   | "us-west-1"        -> `US_WEST_1      
+  | "us-west-2"        -> `US_WEST_2      
   | "eu-west-1"        -> `EU_WEST_1      
   | "ap-southeast-1"   -> `AP_SOUTHEAST_1 
   | "ap-northeast-1"   -> `AP_NORTHEAST_1 
@@ -34,6 +42,7 @@ let region_of_string = function
 let service_url_of_region = function
   | `US_EAST_1      -> "http://s3.amazonaws.com/"
   | `US_WEST_1      -> "http://s3-us-west-1.amazonaws.com/"
+  | `US_WEST_2      -> "http://s3-us-west-2.amazonaws.com/"
   | `EU_WEST_1      -> "http://s3-eu-west-1.amazonaws.com/"
   | `AP_SOUTHEAST_1 -> "http://s3-ap-southeast-1.amazonaws.com/"
   | `AP_NORTHEAST_1 -> "http://s3-ap-northeast-1.amazonaws.com/"
@@ -49,6 +58,7 @@ let create_bucket_configuration_xml s =
 let location_constraint_xml_of_region = function
   | `US_EAST_1      -> ""
   | `US_WEST_1      -> create_bucket_configuration_xml "us-west-1"
+  | `US_WEST_2      -> create_bucket_configuration_xml "us-west-2"
   | `EU_WEST_1      -> create_bucket_configuration_xml "EU"
   | `AP_SOUTHEAST_1 -> create_bucket_configuration_xml "ap-southeast-1"
   | `AP_NORTHEAST_1 -> create_bucket_configuration_xml "ap-northeast-1"
