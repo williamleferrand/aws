@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 178ba48348a1045a809ba2cfb7e4dc9c) *)
+(* DO NOT EDIT (digest: 61372f916be8447d37390780a130b53b) *)
 module OASISGettext = struct
 # 21 "/Users/hypios/reloaded/pub/oasis-0.2.0/src/oasis/OASISGettext.ml"
   
@@ -468,6 +468,18 @@ let package_default =
             [(OASISExpr.EBool true, S [A "-annot"])]);
           (["oasis_library_aws_native"; "ocaml"; "compile"; "native"],
             [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_native"; "ocaml"; "ocamldep"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
+          (["oasis_library_aws_cohttp_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-annot"])]);
           (["oasis_executable_update_byte"; "ocaml"; "link"; "byte"],
             [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_executable_update_native"; "ocaml"; "link"; "native"],
@@ -479,6 +491,24 @@ let package_default =
           (["oasis_executable_update_byte"; "ocaml"; "compile"; "byte"],
             [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_executable_update_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          ([
+              "oasis_executable_deldomain_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-thread"])]);
+          (["oasis_executable_deldomain_native"; "ocaml"; "compile"; "native"
+           ],
             [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_executable_listdomain_byte"; "ocaml"; "link"; "byte"],
             [(OASISExpr.EBool true, S [A "-thread"])]);
@@ -502,18 +532,6 @@ let package_default =
               "native"
            ],
             [(OASISExpr.EBool true, S [A "-thread"])]);
-          (["oasis_library_aws_cohttp_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-annot"])]);
-          (["oasis_library_aws_cohttp_native"; "ocaml"; "link"; "native"],
-            [(OASISExpr.EBool true, S [A "-annot"])]);
-          (["oasis_library_aws_cohttp_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-annot"])]);
-          (["oasis_library_aws_cohttp_native"; "ocaml"; "ocamldep"; "native"],
-            [(OASISExpr.EBool true, S [A "-annot"])]);
-          (["oasis_library_aws_cohttp_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-annot"])]);
-          (["oasis_library_aws_cohttp_native"; "ocaml"; "compile"; "native"],
-            [(OASISExpr.EBool true, S [A "-annot"])]);
           (["oasis_executable_backup_byte"; "ocaml"; "link"; "byte"],
             [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_executable_backup_native"; "ocaml"; "link"; "native"],

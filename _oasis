@@ -17,8 +17,8 @@ Library "aws"
   Path: lib
   ByteOpt: -annot
   NativeOpt: -annot
-  Modules: Creds, Aws_sigs, Xml, Aws_util, Http_method, EC2_factory, SDB_factory, S3_factory, SQS_factory
-  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp
+  Modules: Creds, Aws_sigs, Xml, Aws_util, Http_method, EC2_factory, SDB_factory, S3_factory, SQS_factory, Policy
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp, yojson
 
 Library "aws-cohttp"
   Build$: flag(cohttp) || flag(all)
@@ -30,6 +30,7 @@ Library "aws-cohttp"
   Path: lib
   Modules: EC2, SDB, S3, SQS
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp
+
 
 Executable backup
   Path:         tools
@@ -55,3 +56,13 @@ Executable update
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
+
+
+Executable deldomain
+  Path:         tools
+  MainIs:       deldomains.ml
+  Install:      false
+  ByteOpt: -thread 
+  NativeOpt: -thread
+  CompiledObject: best
+  BuildDepends: aws.cohttp

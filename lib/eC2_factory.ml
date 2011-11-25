@@ -96,7 +96,7 @@ let signed_request
     let key_equals_value = Util.encode_key_equals_value sorted_params in
     let uri_query_component = String.concat "&" key_equals_value in
     let string_to_sign = String.concat "\n" [ 
-      string_of_http_method http_method ;
+      Http_method.string_of_t http_method ;
       String.lowercase http_host ;
       http_uri ;
       uri_query_component 
@@ -254,18 +254,18 @@ type instance_state = [
 | `terminated 
 | `stopping 
 | `stopped
-| `problematic
 ]
 
-let instance_state_of_code = function
-  |  0  -> `pending
-  | 16  -> `running
-  | 32  -> `shutting_down
-  | 48  -> `terminated
-  | 64  -> `stopping
-  | 80  -> `stopped
-  | 272 -> `problematic
-  | _   -> raise (Error "instance_state_of_code")
+let instance_state_of_code code = 
+  (* only low byte meaningful *)
+  match code land 0xff with 
+    |  0  -> `pending
+    | 16  -> `running
+    | 32  -> `shutting_down
+    | 48  -> `terminated
+    | 64  -> `stopping
+    | 80  -> `stopped
+    | x   -> raise (Error (Printf.sprintf "instance_state_of_code: %d" x))
 
 let string_of_instance_state = function
   | `pending       -> "pending"
@@ -274,7 +274,6 @@ let string_of_instance_state = function
   | `terminated    -> "terminated"
   | `stopping      -> "stopping"
   | `stopped       -> "stopped"
-  | `problematic   -> "problematic"
 
 
 let state_of_xml = function
@@ -311,14 +310,26 @@ let terminate_instances_of_xml = function
     List.map item_of_xml items
   | _ -> raise (Error "TerminateInstancesResponse")
 
+type error = [
+| `Error of (string * string) (* [code,message] *)
+| `InsufficientInstanceCapacity of string
+]
+
+ (* generic error *)
 let error_msg body =
   match X.xml_of_string body with
     | X.E ("Response",_,(X.E ("Errors",_,[X.E ("Error",_,[
       X.E ("Code",_,[X.P code]);
       X.E ("Message",_,[X.P message])
-    ])]))::_) ->
-      `Error message
-  
+    ])]))::_) -> (
+        match code with
+          | "InsufficientInstanceCapacity" ->
+              `InsufficientInstanceCapacity message
+          | _ ->
+              (* haven't cataloged' all error messages *)
+              `Error (code, message)
+      )
+
   | _ -> raise (Error "Response.Errors.Error")
 
 let instance_id_args instance_ids =
@@ -338,7 +349,7 @@ let terminate_instances ?expires_minutes ?region creds instance_ids =
     return (`Ok  (terminate_instances_of_xml xml))
   with 
     | HC.Http_error (_,_,body) ->
-      return (error_msg body)
+        return (error_msg body)
 
 (* describe instances *)
 type instance = <
@@ -531,6 +542,7 @@ let run_instances
     ?region
     ?placement_group
     ?instance_type
+    ?(security_groups=[]) (* secruity group names, not id's *)
     creds 
     ~image_id 
     ~min_count 
@@ -550,6 +562,10 @@ let run_instances
   let args = augment_opt (fun kn -> "KeyName", kn) args key_name in
   let args = augment_opt (fun it -> "InstanceType", string_of_instance_type it) 
     args instance_type in
+  let sg = Util.list_map_i (
+    fun i security_group -> sprint "SecurityGroup.%d" i, security_group ) security_groups in
+  let args = args @ sg in
+
   let request = signed_request creds ?expires_minutes ?region args in
   try_lwt 
     lwt header, body = HC.get request in
@@ -784,4 +800,93 @@ let cancel_spot_instance_requests ?region creds sir_ids =
   with 
     | HC.Http_error (_,_,body) -> return (error_msg body)
 
-end
+
+let tag_set_item_of_xml = function
+  | X.E("item", _, kids ) -> (
+      match kids with
+        | [X.E("resourceId", _, [X.P resource_id]);
+           X.E("resourceType", _, [X.P resource_type]);
+           X.E("key", _, [X.P key]);
+           X.E("value", _, value_opt );
+          ] -> (
+            let value_opt = 
+              match value_opt with
+                | [] -> None
+                | [X.P value] -> Some value
+                | _ -> raise (Error "tagSet.item:1")
+            in
+            object 
+              method resource_id = resource_id
+              method resource_type = resource_type
+              method key = key
+              method value_opt = value_opt
+            end
+          )
+        | _ ->
+            raise (Error "tagSet.item:2")
+    )
+  | _ -> raise (Error "tagSet.item:3")
+
+let describe_tags_response_of_xml = function
+  | X.E("DescribeTagsResponse", _, kids ) -> (
+      match find_kids kids "tagSet" with
+        | Some tag_set_items  -> List.map tag_set_item_of_xml tag_set_items 
+        | None -> raise (Error "DescribeTagsResponse:1")
+    )
+  | _ -> raise (Error "DescribeTagsResponse:2")
+
+let describe_tags creds = (* TODO filters *)
+  let args = ["Action","DescribeTags"] in
+  let request = signed_request creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    let xml = X.xml_of_string body in
+    let items = describe_tags_response_of_xml xml in
+    return (`Ok items)
+  with
+    | HC.Http_error (_,_,body) -> return (error_msg body)
+
+
+let create_tags creds tags =
+  let args = ["Action", "CreateTags"] in
+  let _, args = List.fold_left (
+    fun (count, accu) tag ->
+      let resource = sprint "ResourceId.%d" count, tag#resource_id in
+      let key = sprint "Tag.%d.Key" count, tag#key in
+      let value = sprint "Tag.%d.Value" count, 
+        (match tag#value_opt with
+          | None -> "" 
+          | Some value -> value
+        ) in
+      count+1, resource :: key :: value :: accu
+  ) (0, args) tags in
+  let request = signed_request creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    return `Ok
+  with
+    | HC.Http_error (_,_,body) -> return (error_msg body)
+  
+let delete_tags creds tags =
+  let args = ["Action", "DeleteTags"] in
+  let _,  args = List.fold_left (
+    fun (count, accu) tag ->
+      let resource = sprint "ResourceId.%d" count, tag#resource_id in
+      let key = sprint "Tag.%d.Key" count, tag#key in
+      let accu' =
+        if tag#empty_value then
+          let value = sprint "Tag.%d.Value" count, "" in
+          value :: resource :: key :: accu
+        else
+          resource :: key :: accu
+      in
+      count+1, accu'
+  ) (0, args) tags in
+  let request = signed_request creds args in
+  try_lwt
+    lwt header, body = HC.get request in
+    return `Ok
+  with
+    | HC.Http_error (_,_,body) -> return (error_msg body)
+
+end  

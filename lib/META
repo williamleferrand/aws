@@ -1,10 +1,10 @@
 # OASIS_START
-# DO NOT EDIT (digest: 677bd9ffe42d6b54e0a7fdd5f3bc95e1)
+# DO NOT EDIT (digest: 69f82ac6ae3983799b4e91f7a0ca097e)
 version = "0.0.1"
 description = "aws client lib for amazon web services"
 requires
  =
- "lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm cohttp"
+ "lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm cohttp yojson"
 archive(byte) = "aws.cma"
 archive(native) = "aws.cmxa"
 exists_if = "aws.cma"

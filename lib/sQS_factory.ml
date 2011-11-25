@@ -57,7 +57,7 @@ let signed_request
     let key_equals_value = Util.encode_key_equals_value sorted_params in
     let uri_query_component = String.concat "&" key_equals_value in
     let string_to_sign = String.concat "\n" [ 
-      string_of_http_method http_method ;
+      Http_method.string_of_t http_method ;
       String.lowercase http_host ;
       http_uri ;
       uri_query_component 

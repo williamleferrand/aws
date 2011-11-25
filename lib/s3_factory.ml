@@ -1,37 +1,6 @@
-(* Copyright (c) 2010, barko 00336ea19fcb53de187740c490f764f4 All
-   rights reserved.
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are
-   met:
-   
-   1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the
-   distribution.
-
-   3. Neither the name of barko nor the names of contributors may be used
-   to endorse or promote products derived from this software without
-   specific prior written permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*)
-
 module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
   struct 
+
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 module K = Cryptokit
@@ -45,11 +14,18 @@ module Util = Aws_util
 
 let sprintf = Printf.sprintf
 
-type region = [ `US_EAST_1 | `US_WEST_1 | `EU_WEST_1 | `AP_SOUTHEAST_1 | `AP_NORTHEAST_1 ]
+type region = [ 
+| `US_EAST_1 
+| `US_WEST_1 
+| `US_WEST_2 
+| `EU_WEST_1 
+| `AP_SOUTHEAST_1 
+| `AP_NORTHEAST_1 ]
 
 let string_of_region = function 
   | `US_EAST_1      -> "us-east-1"
   | `US_WEST_1      -> "us-west-1"
+  | `US_WEST_2      -> "us-west-2"
   | `EU_WEST_1      -> "eu-west-1"
   | `AP_SOUTHEAST_1 -> "ap-southeast-1"
   | `AP_NORTHEAST_1 -> "ap-northeast-1"
@@ -57,6 +33,7 @@ let string_of_region = function
 let region_of_string = function 
   | "us-east-1"        -> `US_EAST_1      
   | "us-west-1"        -> `US_WEST_1      
+  | "us-west-2"        -> `US_WEST_2      
   | "eu-west-1"        -> `EU_WEST_1      
   | "ap-southeast-1"   -> `AP_SOUTHEAST_1 
   | "ap-northeast-1"   -> `AP_NORTHEAST_1 
@@ -65,17 +42,26 @@ let region_of_string = function
 let service_url_of_region = function
   | `US_EAST_1      -> "http://s3.amazonaws.com/"
   | `US_WEST_1      -> "http://s3-us-west-1.amazonaws.com/"
+  | `US_WEST_2      -> "http://s3-us-west-2.amazonaws.com/"
   | `EU_WEST_1      -> "http://s3-eu-west-1.amazonaws.com/"
   | `AP_SOUTHEAST_1 -> "http://s3-ap-southeast-1.amazonaws.com/"
   | `AP_NORTHEAST_1 -> "http://s3-ap-northeast-1.amazonaws.com/"
 
+let create_bucket_configuration_xml s = 
+  sprintf 
+    "<CreateBucketConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">
+       <LocationConstraint>%s</LocationConstraint>
+     </CreateBucketConfiguration>" 
+    s
+    
 (* wow this is bad *)
-let location_constraint_of_region = function
+let location_constraint_xml_of_region = function
   | `US_EAST_1      -> ""
-  | `US_WEST_1      -> "us-west-1"
-  | `EU_WEST_1      -> "EU"
-  | `AP_SOUTHEAST_1 -> "ap-southeast-1"
-  | `AP_NORTHEAST_1 -> "ap-northeast-1"
+  | `US_WEST_1      -> create_bucket_configuration_xml "us-west-1"
+  | `US_WEST_2      -> create_bucket_configuration_xml "us-west-2"
+  | `EU_WEST_1      -> create_bucket_configuration_xml "EU"
+  | `AP_SOUTHEAST_1 -> create_bucket_configuration_xml "ap-southeast-1"
+  | `AP_NORTHEAST_1 -> create_bucket_configuration_xml "ap-northeast-1"
 
 let now_as_string () =
   P.sprint "%a, %d %b %Y %H:%M:%S GMT" (C.now ())
@@ -123,6 +109,27 @@ let group_by_key kv_list =
     fun k v_list accu ->
       (k, v_list) :: accu
   ) map []
+
+let find_element kids key = 
+  try
+    Some (
+      List.find (
+        fun kid -> 
+          match kid with
+            | X.E ( k, _, _ ) when k = key -> true
+            | _ -> false
+      ) kids
+    )
+  with Not_found ->
+    None
+
+(* get the data of an X.P child node of a node in [kids] whose tag is
+   [key] *)
+let find_p_child_fail kids key =
+  match find_element kids key with
+    | None -> raise (Error ("\"" ^ key ^ "\" not found"))
+    | Some (X.E( _, _, [X.P data])) -> data
+    | Some _ -> raise (Error ("\"" ^ key ^ "\" doesn't have data child"))
 
 (* replace a substring of whitespace with a single space *)
 let squash_whitespace = 
@@ -245,7 +252,7 @@ let auth_hdr
 
   let string_to_sign = 
     let buf = new buffer 100 in
-    buf#add (string_of_http_method http_method); buf#add "\n";
+    buf#add (Http_method.string_of_t http_method); buf#add "\n";
     buf#add content_md5; buf#add "\n";
     buf#add content_type; buf#add "\n";
     buf#add date; buf#add "\n";
@@ -256,18 +263,6 @@ let auth_hdr
   let signature = sign creds.Creds.aws_secret_access_key string_to_sign in
   "Authorization", sprintf "AWS %s:%s" creds.Creds.aws_access_key_id signature
 
-let find_element kids key = 
-  try
-    Some (
-      List.find (
-        fun kid -> 
-          match kid with
-            | X.E ( k, _, _ ) when k = key -> true
-            | _ -> false
-      ) kids
-    )
-  with Not_found ->
-    None
 
 let error_msg body =
   
@@ -420,12 +415,8 @@ let create_bucket creds region bucket amz_acl =
   let date = now_as_string () in
   let amz_headers = ["x-amz-acl", string_of_amz_acl amz_acl ] in
   let request_url = sprintf "%s%s" (service_url_of_region region) bucket in
-  let body = sprintf "
-    <CreateBucketConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"> 
-      <LocationConstraint>%s</LocationConstraint> 
-    </CreateBucketConfiguration>
-  " (location_constraint_of_region region) in
-
+  let body = location_constraint_xml_of_region region in
+  
   (* [Http_client] puts a default content type whenever there's a 
      non-empty body; since that contenty-type must figure into the 
      signature, we have to explicity set it here *)
@@ -588,7 +579,7 @@ let get_object_metadata creds region ~bucket ~objekt =
     return (`Ok meta)
   with 
     | HC.Http_error (404,_, _   ) -> return `NotFound
-    | HC.Http_error (301,_, body) -> permanent_redirect_of_string body
+    | HC.Http_error (301,_, body) -> return `PermanentRedirect
     | HC.Http_error (_  ,_, body) -> error_msg body
 
   
@@ -600,77 +591,103 @@ let option_pcdata err = function
 
 let rec list_bucket_result_of_xml = function
   | X.E ("ListBucketResult",_,kids) -> (
-    match kids with 
-      | X.E ("Name",_,[X.P name]) ::
-          X.E ("Prefix",_,prefix_opt) ::
-          X.E ("Marker",_,marker_opt) ::
-          X.E ("MaxKeys",_,[X.P max_keys]) ::
-          X.E ("IsTruncated",_,[X.P is_truncated]) ::
-          contents ->
+      match kids with 
+        | X.E ("Name",_,[X.P name]) ::
+            X.E ("Prefix",_,prefix_opt) ::
+            X.E ("Marker",_,marker_opt) ::
+            X.E ("MaxKeys",_,[X.P max_keys]) ::
+            X.E ("IsTruncated",_,[X.P is_truncated]) ::
+            contents ->
 
-        let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
-        let marker_opt = option_pcdata "ListBucketResult:marker" marker_opt in
-        let max_keys = int_of_string max_keys in
-        let is_truncated = bool_of_string is_truncated in
-        let contents = contents_of_xml contents in
+            let prefix_opt = option_pcdata "ListBucketResult:prefix" prefix_opt in
+            let marker_opt = option_pcdata "ListBucketResult:marker" marker_opt in
+            let max_keys = int_of_string max_keys in
+            let is_truncated = bool_of_string is_truncated in
+            let contents = contents_of_xml contents in
 
-        (object 
-          method name = name
-          method prefix = prefix_opt
-          method marker = marker_opt
-          method max_keys = max_keys
-          method is_truncated = is_truncated
-          method objects = contents
-         end)
-      | _ ->
-        raise (Error "ListBucketResult:k")
-  )
+            (object 
+               method name = name
+               method prefix = prefix_opt
+               method marker = marker_opt
+               method max_keys = max_keys
+               method is_truncated = is_truncated
+               method objects = contents
+             end)
+        | _ ->
+            raise (Error "ListBucketResult:k")
+    )
   | _ ->
-    raise (Error "ListBucketResult:t")
+      raise (Error "ListBucketResult:t")
 
 and contents_of_xml contents =
   List.map objects_of_xml contents
 
 and objects_of_xml = function
-  | X.E ("Contents",_, [
-    X.E ("Key",_,[X.P name]);
-    X.E ("LastModified",_,[X.P last_modified_s]);
-    X.E ("ETag",_,[X.P etag]);
-    X.E ("Size",_,[X.P size]);
-(*    X.E ("Owner",_,[
-      X.E ("ID",_,[X.P owner_id]);
-      X.E ("DisplayName",_,[X.P owner_display_name])
-    ]); *)
-    X.E ("StorageClass",_,[X.P storage_class])
-  ]) ->
-    let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
-    let size = int_of_string size in
-    let owner_id = "invalid" and owner_display_name = "invalid" in 
-    (object 
-      method name = name
-      method last_modified = last_modified
-      method etag = etag
-      method size = size
-      method storage_class = storage_class 
-      method owner_id = owner_id
-      method owner_display_name = owner_display_name
-     end)
+  | X.E ("Contents",_, kids ) ->
+      let key = find_p_child_fail kids "Key" in 
+      let etag = find_p_child_fail kids "ETag" in
+      let size = find_p_child_fail kids "Size" in
+      let storage_class = find_p_child_fail kids "StorageClass" in
+      let last_modified = find_p_child_fail kids "LastModified" in
+
+      let identity =
+        match find_element kids "Owner" with
+          | Some (
+              X.E (
+                "Owner",_,[
+                  X.E ("ID",_,[X.P owner_id]);
+                  X.E ("DisplayName",_,[X.P owner_display_name])
+                ]
+              )
+            ) ->
+              Some (
+                object 
+                  method id = owner_id
+                  method display_name = owner_display_name
+                end
+              )
+          | Some _ ->
+              raise (Error "ListBucket: owner")
+
+          | None -> None
+      in
+      let last_modified = Util.unixfloat_of_amz_date_string last_modified in
+      let size = int_of_string size in
+      (object 
+         method name = key
+         method last_modified = last_modified
+         method etag = etag
+         method size = size
+         method storage_class = storage_class 
+         method owner = identity
+       end)
   | _ -> raise (Error "ListBucketResult:c")
     
 
-let list_objects ?(prefix="") ?(marker="") creds region bucket =
+let list_objects ?prefix ?marker ?max_keys creds region bucket =
   let date = now_as_string () in
   let authorization_header = auth_hdr ~http_method:`GET ~date ~bucket creds in
   let headers = [ "Date", date ; authorization_header ] in
   
-  let get_params = 
-    match prefix, marker with 
-        "", "" -> []
-      | _, "" -> [ "prefix", prefix ]
-      | "", _ -> [ "marker", marker ]
-      | _, _ -> [ "prefix", prefix ; "marker", marker ] in
+  let params = [] in
+  let params = 
+    match prefix with
+      | None -> params
+      | Some p -> ("prefix", p) :: params
+  in
+  let params = 
+    match marker with
+      | None -> params
+      | Some m ->  ("marker", m) :: params
+  in
+  let params =
+    match max_keys with
+      | None -> params
+      | Some mk -> ("max-keys", string_of_int mk) :: params 
+  in
 
-  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^ "?" ^ (Netencoding.Url.mk_url_encoded_parameters get_params) in
+  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^ 
+    "?" ^ (Netencoding.Url.mk_url_encoded_parameters params) in
 
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
@@ -711,10 +728,27 @@ object
   method display_name : string = display_name
 end
 
+type group = [
+| `AllUsers
+| `Authenticated
+| `LogDelivery
+]
+
+let string_of_group = function
+  | `AllUsers      -> "http://acs.amazonaws.com/groups/global/AllUsers"
+  | `Authenticated -> "http://acs.amazonaws.com/groups/global/Authenticated"
+  | `LogDelivery   -> "http://acs.amazonaws.com/groups/s3/LogDelivery"
+
+let group_of_string = function
+  | "http://acs.amazonaws.com/groups/global/AllUsers"      -> `AllUsers
+  | "http://acs.amazonaws.com/groups/global/Authenticated" -> `Authenticated
+  | "http://acs.amazonaws.com/groups/s3/LogDelivery"       -> `LogDelivery
+  | x -> raise (Error (sprintf "invalid group %S" x))
+
 type identity = [ 
 | `amazon_customer_by_email of string
 | `canonical_user of canonical_user
-| `group of string 
+| `group of group
 ]
 
 type grant = identity * permission
@@ -725,11 +759,10 @@ object
   method grants : grant list = grants
 end
 
-
 let string_of_identity = function
 | `amazon_customer_by_email em -> "AmazonCustomerByEmail " ^ em
 | `canonical_user cn -> sprintf "CanonicalUser (%s,%s)" cn#id cn#display_name
-| `group g -> "Group " ^ g
+| `group g -> "Group " ^ (string_of_group g)
 
 let tag_of_identity = function 
 | `amazon_customer_by_email _ -> "AmazonCustomerByEmail"
@@ -746,7 +779,7 @@ let identity_of_xml = function
     `amazon_customer_by_email email_address
 
   | [X.E ("URI",_,[X.P group])] ->
-    `group group
+    `group (group_of_string group)
 
   | _ ->
     raise (Error "grantee")
@@ -814,8 +847,8 @@ let xml_of_identity = function
     [X.E ("ID",[],[X.P cn#id]);
      X.E ("DisplayName",[],[X.P cn#display_name])]
 
-  | `group uri ->
-    [X.E("URI",[],[X.P uri])]
+  | `group group ->
+    [X.E("URI",[],[X.P (string_of_group group)])]
 
 let xml_of_grantee identity = 
   let identity_x = xml_of_identity identity in
@@ -840,6 +873,7 @@ let xml_of_access_control_policy acl =
   X.E ("AccessControlPolicy", [], kids)
 
 let xml_content_type_header = "Content-Type", "application/xml"
+let json_content_type_header = "Content-Type", "application/json"
 
 let set_bucket_acl creds region bucket acl  =
   let date = now_as_string () in
@@ -938,4 +972,109 @@ let set_object_acl creds region ~bucket ~objekt acl  =
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _ ,body) -> error_msg body
+
+let get_bucket_policy creds region ~bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`GET
+    ~date 
+    ~bucket 
+    ~sub_resources:[`policy, None] 
+    creds
+  in
+  let request_url = sprintf "%s%s?%s" (service_url_of_region region)
+    (Util.encode_url bucket) (string_of_sub_resource `policy) 
+  in  
+  let headers = [ "Date", date ; authorization_header ] in
+  try_lwt
+    lwt _, response_body = HC.get ~headers request_url in
+    return (`Ok response_body)
+  with 
+    | HC.Http_error (403, _, _   ) -> return `AccessDenied
+    | HC.Http_error (405, _, body) -> return `NotOwner
+    | HC.Http_error (404, _, body) -> return `NotFound
+    | HC.Http_error (_  , _ ,body) -> error_msg body
+
+let delete_bucket_policy creds region ~bucket =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`DELETE
+    ~date 
+    ~bucket 
+    ~sub_resources:[`policy, None] 
+    creds
+  in
+  let request_url = sprintf "%s%s?%s" (service_url_of_region region)
+    (Util.encode_url bucket) (string_of_sub_resource `policy) 
+  in  
+  let headers = [ "Date", date ; authorization_header ] in
+  try_lwt
+    HC.delete ~headers request_url >> return `Ok
+  with 
+    | HC.Http_error (204, _, _) -> return `Ok
+
+    | HC.Http_error (403, _, _   ) -> return `AccessDenied
+    | HC.Http_error (405, _, body) -> return `NotOwner
+    | HC.Http_error (_  , _ ,body) -> error_msg body
+
+let set_bucket_policy creds region ~bucket ~policy =
+  let date = now_as_string () in
+  let authorization_header = auth_hdr
+    ~http_method:`PUT
+    ~date 
+    ~bucket 
+    ~sub_resources:[`policy, None] 
+    ~content_type:(snd json_content_type_header)
+    creds
+  in
+  let request_url = sprintf "%s%s?%s" (service_url_of_region region)
+    (Util.encode_url bucket) (string_of_sub_resource `policy) 
+  in  
+  let headers = [ "Date", date ; json_content_type_header; authorization_header ] in
+  let body = `String policy in
+  try_lwt
+    lwt _ = HC.put ~headers ~body request_url in
+    return `Ok
+  with 
+    | HC.Http_error (204, _, _) -> return `Ok
+    | HC.Http_error (403, _, _   ) -> return `AccessDenied
+    | HC.Http_error (400, _, _) -> return `MalformedPolicy
+    | HC.Http_error (_  , _ ,body) -> error_msg body
+
 end
+
+(* Copyright (c) 2011: 
+
+      barko 00336ea19fcb53de187740c490f764f4
+      William Le Ferrand
+
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+   
+   1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+   3. Neither the name of barko nor the names of contributors may be used
+   to endorse or promote products derived from this software without
+   specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*)

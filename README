@@ -8,7 +8,8 @@ Aws depends directly on the following packages:
 -  calendar
 -  lwt
 -  [xmlm](http://github.com/samoht/xmlm)
--  [cohttp](http://github.com/avsm/ocaml-cohttp)
--  (eventual) ocsigen
+-  [cohttp](http://github.com/williamleferrand/ocaml-cohttp)
+-  yojson 
+-  (eventually) ocsigen
 
 All of the packages except the last two are available via GODI.  
