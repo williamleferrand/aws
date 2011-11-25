@@ -47,3 +47,11 @@ Executable listdomain
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
+
+Executable update
+  Path:         tools
+  MainIs:       update.ml
+  Install:      false
+  ByteOpt: -thread
+  NativeOpt: -thread
+  BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix

@@ -1,10 +1,25 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1586897502e3fe9178970badc02f82b4)
+# DO NOT EDIT (digest: 7787953e5555d6ef32d755ddf13e8164)
 # Library aws
 <lib/aws.{cma,cmxa}>: oasis_library_aws_byte
 <lib/*.ml{,i}>: oasis_library_aws_byte
 <lib/aws.{cma,cmxa}>: oasis_library_aws_native
 <lib/*.ml{,i}>: oasis_library_aws_native
+# Executable update
+"tools/update.byte": oasis_executable_update_byte
+<tools/*.ml{,i}>: oasis_executable_update_byte
+"tools/update.byte": oasis_executable_update_native
+<tools/*.ml{,i}>: oasis_executable_update_native
+"tools/update.byte": pkg_xmlm
+"tools/update.byte": pkg_unix
+"tools/update.byte": pkg_str
+"tools/update.byte": pkg_netstring
+"tools/update.byte": pkg_lwt.unix
+"tools/update.byte": pkg_lwt.syntax
+"tools/update.byte": pkg_lwt
+"tools/update.byte": pkg_cryptokit
+"tools/update.byte": pkg_cohttp
+"tools/update.byte": pkg_calendar
 # Executable listdomain
 "tools/listdomain.byte": oasis_executable_listdomain_byte
 <tools/*.ml{,i}>: oasis_executable_listdomain_byte
