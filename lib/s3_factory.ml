@@ -508,7 +508,7 @@ let put_object
     ~amz_headers
     ~date 
     ~bucket 
-    ~request_uri:("/" ^ objekt) 
+    ~request_uri:("/" ^ (Util.encode_url objekt)) 
     creds
   in
   let bucket_object = (Util.encode_url bucket) ^ "/" ^ 
@@ -536,7 +536,7 @@ let put_object
     lwt () = close () in
     match exn with
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
-    | HC.Http_error (_, _, body) -> print_endline body ; (
+    | HC.Http_error (_, _, body) ->  (
         error_msg body >>= function
           | `Error "AccessDenied" -> return `AccessDenied
           | `Error _ as err -> return err
