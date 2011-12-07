@@ -461,10 +461,10 @@ let rec bucket = function
       X.E ("Name",_,        [X.P name           ]) ;  
       X.E ("CreationDate",_,[X.P creation_date_s]) 
     ] )->
-    (object
+    (name (* object
       method name = name
       method creation_date = creation_date_s
-     end)
+     end *))
   | _ -> raise (Error "ListAllMyBucketsResult:2")
 
 and list_all_my_buckets_result_of_xml = function 
