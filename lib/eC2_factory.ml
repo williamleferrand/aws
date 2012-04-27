@@ -1,9 +1,9 @@
 
-module Make = functor (HC : Aws_sigs.HTTP_CLIENT) -> 
-  struct 
+module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
+  struct
 
 
-module C = CalendarLib.Calendar 
+module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 module X = Xml
 
@@ -25,17 +25,17 @@ let find_kids e_list k =
       | X.E( name, _, kids ) -> name = k
       | X.P _ -> false
     ) e_list in
-    let kids = 
+    let kids =
       match el with
         | X.E( name, _, kids ) -> kids
         | X.P _ -> assert false
     in
     Some kids
-  with Not_found -> 
+  with Not_found ->
     None
 
 let find_kids_else_error e_list k =
-  match find_kids e_list k with 
+  match find_kids e_list k with
     | None -> raise (Error k)
     | Some kids -> kids
 
@@ -65,11 +65,11 @@ let find_e_kid_else_error e_list k =
 (* compute the AWS SHA1 signature that to annotate a Query-style request *)
 let signed_request
     ?region
-    ?(http_method=`GET) 
+    ?(http_method=`GET)
     ?(http_uri="/")
     ?expires_minutes
-    creds 
-    params  = 
+    creds
+    params  =
 
   let http_host =
     match region with
@@ -77,34 +77,34 @@ let signed_request
       | None -> "ec2.amazonaws.com"
   in
 
-  let params = 
+  let params =
     ("Version", "2010-08-31" ) ::
       ("SignatureVersion", "2") ::
       ("SignatureMethod", "HmacSHA1") ::
-      ("AWSAccessKeyId", creds.aws_access_key_id) :: 
+      ("AWSAccessKeyId", creds.aws_access_key_id) ::
       params
   in
 
-  let params = 
+  let params =
     match expires_minutes with
-      | Some i -> ("Expires", Util.minutes_from_now i) :: params 
+      | Some i -> ("Expires", Util.minutes_from_now i) :: params
       | None -> ("Timestamp", Util.now_as_string ()) :: params
   in
 
-  let signature = 
+  let signature =
     let sorted_params = Util.sort_assoc_list params in
     let key_equals_value = Util.encode_key_equals_value sorted_params in
     let uri_query_component = String.concat "&" key_equals_value in
-    let string_to_sign = String.concat "\n" [ 
+    let string_to_sign = String.concat "\n" [
       Http_method.string_of_t http_method ;
       String.lowercase http_host ;
       http_uri ;
-      uri_query_component 
+      uri_query_component
     ]
     in
     let hmac_sha1_encoder = Cryptokit.MAC.hmac_sha1 creds.aws_secret_access_key in
     let signed_string = Cryptokit.hash_string hmac_sha1_encoder string_to_sign in
-    Util.base64 signed_string 
+    Util.base64 signed_string
   in
 
   let params = ("Signature", signature) :: params in
@@ -134,11 +134,11 @@ let describe_regions ?expires_minutes creds =
   let request = signed_request creds ?expires_minutes
     ["Action", "DescribeRegions" ] in
   lwt header, body = HC.get request in
-  let xml = X.xml_of_string body in  
+  let xml = X.xml_of_string body in
   return (describe_regions_response_of_xml xml)
 
 (* describe spot price history *)
-let item_of_xml = function 
+let item_of_xml = function
   | X.E ("item",_,[
     X.E ("instanceType",_,[X.P instance_type]);
     X.E ("productDescription",_,[X.P product_description]);
@@ -148,10 +148,10 @@ let item_of_xml = function
 
     let spot_price = float_of_string spot_price_s in
     let timestamp = Util.unixfloat_of_amz_date_string timestamp_s in
-    (object 
+    (object
       method instance_type = instance_type
       method product_description = product_description
-      method spot_price = spot_price 
+      method spot_price = spot_price
       method timestamp = timestamp
      end)
 
@@ -160,7 +160,7 @@ let item_of_xml = function
     "spotPriceHistorySet";
     "item"
   ]))
-      
+
 
 let describe_spot_price_history_of_xml = function
   | X.E ("DescribeSpotPriceHistoryResponse",_,kids) -> (
@@ -170,7 +170,7 @@ let describe_spot_price_history_of_xml = function
 
       | _ ->
         raise (
-          Error ("DescribeSpotPriceHistoryResponse." ^ 
+          Error ("DescribeSpotPriceHistoryResponse." ^
             "spotPriceHistorySet")
         )
   )
@@ -188,49 +188,49 @@ let filters_args kv_list =
   f
 
 type instance_type = [
-| `m1_small 
-| `m1_large 
-| `m1_xlarge 
-| `c1_medium 
-| `c1_xlarge 
-| `m2_xlarge 
-| `m2_2xlarge 
+| `m1_small
+| `m1_large
+| `m1_xlarge
+| `c1_medium
+| `c1_xlarge
+| `m2_xlarge
+| `m2_2xlarge
 | `m2_4xlarge
 | `cc1_4xlarge
-| `cg1_4xlarge 
+| `cg1_4xlarge
 | `t1_micro
 ]
 
 let string_of_instance_type = function
-  | `m1_small       -> "m1.small"     
-  | `m1_large       -> "m1.large"     
-  | `m1_xlarge      -> "m1.xlarge"    
-  | `c1_medium      -> "c1.medium"    
-  | `c1_xlarge      -> "c1.xlarge"    
-  | `m2_xlarge      -> "m2.xlarge"   
-  | `m2_2xlarge     -> "m2.2xlarge"   
-  | `m2_4xlarge     -> "m2.4xlarge"   
+  | `m1_small       -> "m1.small"
+  | `m1_large       -> "m1.large"
+  | `m1_xlarge      -> "m1.xlarge"
+  | `c1_medium      -> "c1.medium"
+  | `c1_xlarge      -> "c1.xlarge"
+  | `m2_xlarge      -> "m2.xlarge"
+  | `m2_2xlarge     -> "m2.2xlarge"
+  | `m2_4xlarge     -> "m2.4xlarge"
   | `cc1_4xlarge    -> "cc1.4xlarge"
   | `cg1_4xlarge    -> "cg1.4xlarge"
   | `t1_micro       -> "t1.micro"
 
 let instance_type_of_string = function
-  | "m1.small"    -> Some `m1_small        
-  | "m1.large"    -> Some `m1_large        
-  | "m1.xlarge"   -> Some `m1_xlarge       
-  | "c1.medium"   -> Some `c1_medium       
-  | "c1.xlarge"   -> Some `c1_xlarge       
-  | "m2.xlarge"   -> Some `m2_xlarge      
-  | "m2.2xlarge"  -> Some `m2_2xlarge      
-  | "m2.4xlarge"  -> Some `m2_4xlarge      
-  | "cc1.4xlarge" -> Some `cc1_4xlarge    
-  | "cg1.4xlarge" -> Some `cg1_4xlarge    
-  | "t1.micro"    -> Some `t1_micro       
+  | "m1.small"    -> Some `m1_small
+  | "m1.large"    -> Some `m1_large
+  | "m1.xlarge"   -> Some `m1_xlarge
+  | "c1.medium"   -> Some `c1_medium
+  | "c1.xlarge"   -> Some `c1_xlarge
+  | "m2.xlarge"   -> Some `m2_xlarge
+  | "m2.2xlarge"  -> Some `m2_2xlarge
+  | "m2.4xlarge"  -> Some `m2_4xlarge
+  | "cc1.4xlarge" -> Some `cc1_4xlarge
+  | "cg1.4xlarge" -> Some `cg1_4xlarge
+  | "t1.micro"    -> Some `t1_micro
   | _ -> None
 
 let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
-  let args = 
-    match instance_type with 
+  let args =
+    match instance_type with
       | Some it -> filters_args ["instance-type", string_of_instance_type it ]
       | None -> []
   in
@@ -248,17 +248,17 @@ let describe_spot_price_history ?expires_minutes ?region ?instance_type creds  =
 *)
 
 type instance_state = [
-| `pending 
-| `running 
-| `shutting_down 
-| `terminated 
-| `stopping 
+| `pending
+| `running
+| `shutting_down
+| `terminated
+| `stopping
 | `stopped
 ]
 
-let instance_state_of_code code = 
+let instance_state_of_code code =
   (* only low byte meaningful *)
-  match code land 0xff with 
+  match code land 0xff with
     |  0  -> `pending
     | 16  -> `running
     | 32  -> `shutting_down
@@ -280,7 +280,7 @@ let state_of_xml = function
   | [ X.E ("code",_,[X.P code_s]);
       X.E ("name",_,[X.P name])
     ] ->
-    instance_state_of_code (int_of_string code_s) 
+    instance_state_of_code (int_of_string code_s)
   | _ ->
     raise (Error "state")
 
@@ -289,18 +289,18 @@ let item_of_xml = function
     X.E ("instanceId",_,[X.P instance_id]);
     X.E ("currentState",_,c_state_x);
     X.E ("previousState",_,p_state_x)
-  ]) -> 
+  ]) ->
     let current_state = state_of_xml c_state_x in
     let previous_state = state_of_xml p_state_x in
-    (object 
+    (object
       method instance_id = instance_id
       method current_state = current_state
       method previous_state = previous_state
      end)
-    
+
   | _ ->
     raise (Error "TerminateInstancesResponse.instancesSet.item")
-      
+
 
 let terminate_instances_of_xml = function
   | X.E ("TerminateInstancesResponse",_, [
@@ -341,52 +341,52 @@ let instance_id_args instance_ids =
 let terminate_instances ?expires_minutes ?region creds instance_ids =
   let args = instance_id_args instance_ids in
   let request = signed_request creds ?region ?expires_minutes
-    (("Action", "TerminateInstances") :: args) 
+    (("Action", "TerminateInstances") :: args)
   in
   try_lwt
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
     return (`Ok  (terminate_instances_of_xml xml))
-  with 
+  with
     | HC.Http_error (_,_,body) ->
         return (error_msg body)
 
 (* describe instances *)
 type instance = <
   id : string;
-  ami_launch_index : int; 
+  ami_launch_index : int;
   architecture_opt : string option;
-  placement_availability_zone_opt : string option; 
+  placement_availability_zone_opt : string option;
   dns_name_opt : string option;
-  placement_group_opt : string option; 
-  image_id : string; 
+  placement_group_opt : string option;
+  image_id : string;
   instance_type : instance_type;
-  ip_address_opt : string option; 
+  ip_address_opt : string option;
   kernel_id_opt : string option;
-  key_name_opt : string option; 
+  key_name_opt : string option;
   launch_time : float;
-  lifecycle_opt : string option; 
+  lifecycle_opt : string option;
   private_dns_name_opt : string option;
-  private_ip_address_opt : string option; 
+  private_ip_address_opt : string option;
   ramdisk_id_opt: string option;
-  reason_opt : string option; 
-  root_device_name_opt : string option; 
-  root_device_type : string; 
+  reason_opt : string option;
+  root_device_name_opt : string option;
+  root_device_type : string;
   state : instance_state;
   virtualization_type_opt : string option;
   monitoring : string
 >
 
-type reservation = < 
+type reservation = <
   id : string;
-  groups : string list; 
-  owner_id : string; 
+  groups : string list;
+  owner_id : string;
   instances : instance list
 >
 
 let group_of_xml = function
   | X.E("item",_,[X.E("groupId",_,[X.P group])]) -> group
-  | _ -> 
+  | _ ->
     raise (Error (
       String.concat "." [
         "DescribeInstancesResponse";
@@ -395,15 +395,15 @@ let group_of_xml = function
         "groupSet";
         "item"]
     ))
-           
-let placement_of_xml kids = 
+
+let placement_of_xml kids =
   let availability_zone_opt = find_p_kid kids "availabilityZone" in
   let group_name_opt = find_p_kid kids "groupName" in
   availability_zone_opt, group_name_opt
 
-let instance_of_xml = function 
+let instance_of_xml = function
   | X.E("item",_,kids) ->
-    
+
     let fp = find_p_kid_else_error kids in
     let fpo = find_p_kid kids in
 
@@ -414,8 +414,8 @@ let instance_of_xml = function
     let dns_name_opt = fpo "dnsName" in
     let key_name_opt = fpo "keyName" in
     let ami_launch_index_s = fp "amiLaunchIndex" in
-    let instance_type = 
-      match instance_type_of_string (fp "instanceType") with 
+    let instance_type =
+      match instance_type_of_string (fp "instanceType") with
         | Some it -> it
         | None -> raise (Error "instance_type")
     in
@@ -431,28 +431,28 @@ let instance_of_xml = function
     let reason_opt = fpo "reason" in
     let ramdisk_id_opt = fpo "ramdiskId" in
     let lifecycle_opt = fpo "instanceLifecycle" in
-    let monitoring = 
+    let monitoring =
       match find_kids kids "monitoring" with
         | Some [X.E ("state",_,[X.P monitoring_state])] -> monitoring_state
         | _ -> raise (Error "monitoring")
     in
 
-    (* TODO: 
+    (* TODO:
        product_code
        block_device_mapping
        client_token
        tags
        product_codes
-       block_device_mapping 
+       block_device_mapping
        spot_instance_request_id
     *)
 
     let state = state_of_xml state_x in
     let ami_launch_index = int_of_string ami_launch_index_s in
     let launch_time = Util.unixfloat_of_amz_date_string launch_time_s in
-    let placement_availability_zone_opt, placement_group_opt = 
+    let placement_availability_zone_opt, placement_group_opt =
       placement_of_xml placement_x in
-    (object 
+    (object
       method id = id
       method image_id = image_id
       method state = state
@@ -479,7 +479,7 @@ let instance_of_xml = function
   | _ ->
     raise (Error "DescribeInstancesResponse.reservationSet.item.instancesSet")
 
-let reservation_of_xml kids = 
+let reservation_of_xml kids =
   let fp = find_p_kid_else_error kids in
   let fe = find_kids_else_error kids in
   let reservation_id = fp "reservationId" in
@@ -491,7 +491,7 @@ let reservation_of_xml kids =
   (object
     method id = reservation_id
     method owner_id = owner_id
-    method groups = groups 
+    method groups = groups
     method instances = instances
    end)
 
@@ -510,13 +510,13 @@ let describe_instances_of_xml = function
   )
   | _ ->
     raise (Error "DescribeInstancesResponse")
-    
+
 let describe_instances ?expires_minutes ?region creds instance_ids =
   let args = instance_id_args instance_ids in
   let request = signed_request creds ?expires_minutes ?region
     (("Action", "DescribeInstances") :: args)
   in
-  try_lwt 
+  try_lwt
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
     return (`Ok (describe_instances_of_xml xml))
@@ -526,7 +526,7 @@ let describe_instances ?expires_minutes ?region creds instance_ids =
 
 (* run instances *)
 let run_instances_of_xml = function
-  | X.E("RunInstancesResponse",_, reservation_x) -> 
+  | X.E("RunInstancesResponse",_, reservation_x) ->
     reservation_of_xml reservation_x
   | _ ->
     raise (Error "RunInstancesResponse")
@@ -535,39 +535,43 @@ let augment_opt f x = function
   | None -> x
   | Some y -> (f y) :: x
 
-let run_instances 
-    ?expires_minutes 
-    ?key_name 
+let run_instances
+    ?expires_minutes
+    ?key_name
     ?placement_availability_zone
     ?region
     ?placement_group
     ?instance_type
+    ?user_data
     ?(security_groups=[]) (* secruity group names, not id's *)
-    creds 
-    ~image_id 
-    ~min_count 
+    creds
+    ~image_id
+    ~min_count
     ~max_count =
   let args = [
     "Action", "RunInstances" ;
     "MinCount", string_of_int min_count ;
     "MaxCount", string_of_int max_count ;
-    "ImageId", image_id 
+    "ImageId", image_id
   ]
   in
-  let args = augment_opt (fun az -> "Placement.AvailabilityZone", az) 
+  let args = augment_opt (fun az -> "Placement.AvailabilityZone", az)
     args placement_availability_zone in
-  let args = augment_opt (fun pg -> "Placement.GroupName", pg) 
+  let args = augment_opt (fun pg -> "Placement.GroupName", pg)
     args placement_group in
 
+  let args = augment_opt (fun ud -> "UserData", Util.base64 ud)
+    args user_data in
+
   let args = augment_opt (fun kn -> "KeyName", kn) args key_name in
-  let args = augment_opt (fun it -> "InstanceType", string_of_instance_type it) 
+  let args = augment_opt (fun it -> "InstanceType", string_of_instance_type it)
     args instance_type in
   let sg = Util.list_map_i (
     fun i security_group -> sprint "SecurityGroup.%d" i, security_group ) security_groups in
   let args = args @ sg in
 
   let request = signed_request creds ?expires_minutes ?region args in
-  try_lwt 
+  try_lwt
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
     return (`Ok (run_instances_of_xml xml))
@@ -582,7 +586,7 @@ let string_of_spot_instance_request_type = function
   | `Persistent -> "persistent"
 
 let spot_instance_request_type_of_string = function
-  | "one-time"   -> `OneTime   
+  | "one-time"   -> `OneTime
   | "persistent" -> `Persistent
   | _ -> raise (Error "spot instance request type")
 
@@ -606,7 +610,7 @@ type spot_instance_request = {
   sir_key_name : string option;
   sir_availability_zone_group : string option;
   sir_placement_group : string option;
-}  
+}
 
 let minimal_spot_instance_request ~spot_price ~image_id = {
   sir_spot_price = spot_price;
@@ -627,9 +631,9 @@ let minimal_spot_instance_request ~spot_price ~image_id = {
   sir_availability_zone_group = None;
   sir_placement_group = None
 }
-  
 
-let spot_instance_request_args sir = 
+
+let spot_instance_request_args sir =
   let args = ref [] in
   let add k f = function
     | Some x -> args := (k, f x) :: !args
@@ -650,12 +654,12 @@ let spot_instance_request_args sir =
   addid "LaunchSpecification.KernelId" sir.sir_kernel_id;
   addid "LaunchSpecification.RamdiskId" sir.sir_ramdisk_id;
   addid "LaunchSpecification.Placement.AvailabilityZone" sir.sir_availability_zone;
-  addid "LaunchSpecification.Placement.GroupName" sir.sir_placement_group; 
+  addid "LaunchSpecification.Placement.GroupName" sir.sir_placement_group;
   (* not documented! *)
   add "LaunchSpecification.Monitoring.Enabled" string_of_bool sir.sir_monitoring_enabled;
   addid "AvailabilityZoneGroup" sir.sir_availability_zone_group;
   !args
-  
+
 
 type spot_instance_request_state = [ `Active | `Open | `Closed | `Cancelled | `Failed ]
 let string_of_spot_instance_request_state = function
@@ -666,17 +670,17 @@ let string_of_spot_instance_request_state = function
   | `Failed    -> "failed"
 
 let spot_instance_request_state_of_string = function
-  | "active"    -> `Active 
-  | "open"      -> `Open     
-  | "closed"    -> `Closed   
+  | "active"    -> `Active
+  | "open"      -> `Open
+  | "closed"    -> `Closed
   | "cancelled" -> `Cancelled
-  | "failed"    -> `Failed   
+  | "failed"    -> `Failed
   | _ -> raise (Error "spot instance request state")
 
-type spot_instance_request_description = < 
-  id : string; 
+type spot_instance_request_description = <
+  id : string;
   instance_id_opt : string option;
-  sir_type : spot_instance_request_type ; 
+  sir_type : spot_instance_request_type ;
   spot_price : float;
   state : spot_instance_request_state;
   image_id_opt : string option;
@@ -710,7 +714,7 @@ let spot_instance_request_of_xml = function
               Some availability_zone, placement_group_opt
       in
 
-      (object 
+      (object
          method id = sir_id
          method spot_price = spot_price
          method state = state
@@ -723,19 +727,19 @@ let spot_instance_request_of_xml = function
        end)
   | _ ->
       raise (Error "RequestSpotInstancesResponse.spotInstanceRequestSet.item")
-    
+
 let request_spot_instances_of_xml = function
-  | X.E ("RequestSpotInstancesResponse",_,[ _; X.E("spotInstanceRequestSet",_,items) ]) -> 
+  | X.E ("RequestSpotInstancesResponse",_,[ _; X.E("spotInstanceRequestSet",_,items) ]) ->
       List.map spot_instance_request_of_xml items
   | _ ->
       raise (Error ("RequestSpotInstancesResponse"))
 
-let request_spot_instances ?region creds spot_instance_request = 
+let request_spot_instances ?region creds spot_instance_request =
   let args = spot_instance_request_args spot_instance_request in
-  let request = signed_request creds ?region 
+  let request = signed_request creds ?region
     (("Action", "RequestSpotInstances") :: args)
   in
-  try_lwt 
+  try_lwt
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
     let rsp = request_spot_instances_of_xml xml in
@@ -743,40 +747,40 @@ let request_spot_instances ?region creds spot_instance_request =
   with
     | HC.Http_error (_,_,body) ->
       return (error_msg body)
-  
+
 (* describe spot instance requests *)
-let describe_spot_instance_requests_of_xml = function 
+let describe_spot_instance_requests_of_xml = function
   | X.E("DescribeSpotInstanceRequestsResponse",_,[
     _;
     X.E("spotInstanceRequestSet",_,items)
-  ]) -> 
+  ]) ->
     List.map spot_instance_request_of_xml items
 
   | _ ->
     raise (Error "DescribeSpotInstanceRequestsResponse")
 
-let sir_args_of_ids sir_ids = 
+let sir_args_of_ids sir_ids =
   Util.list_map_i (
-    fun i sir_id -> 
+    fun i sir_id ->
       sprint "SpotInstanceRequestId.%d" (i+1), sir_id
-  ) sir_ids 
+  ) sir_ids
 
 let describe_spot_instance_requests ?region creds sir_ids =
   let sir_ids_args = sir_args_of_ids sir_ids in
-  let request = signed_request creds ?region 
+  let request = signed_request creds ?region
     (("Action", "DescribeSpotInstanceRequests") :: sir_ids_args) in
   try_lwt
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
     return (`Ok (describe_spot_instance_requests_of_xml xml))
-  with 
+  with
     | HC.Http_error (_,_,body) ->
       return (error_msg body)
 
 (* cancel spot instance requests *)
 let item_of_xml = function
   | X.E("item",_,[
-    X.E("spotInstanceRequestId",_,[X.P sir_id]); 
+    X.E("spotInstanceRequestId",_,[X.P sir_id]);
     X.E("state",_,[X.P state_s])
   ]) ->
     sir_id, spot_instance_request_state_of_string state_s
@@ -785,7 +789,7 @@ let item_of_xml = function
 let cancel_spot_instance_requests_of_xml = function
   | X.E("CancelSpotInstanceRequestsResponse",_,[
     _; X.E("spotInstanceRequestSet",_,items_x)
-  ])-> 
+  ])->
     List.map item_of_xml items_x
   | _ -> raise (Error "CancelSpotInstanceRequestsResponse")
 
@@ -797,7 +801,7 @@ let cancel_spot_instance_requests ?region creds sir_ids =
     lwt header, body = HC.get request in
     let xml = X.xml_of_string body in
     return (`Ok (cancel_spot_instance_requests_of_xml xml))
-  with 
+  with
     | HC.Http_error (_,_,body) -> return (error_msg body)
 
 
@@ -809,13 +813,13 @@ let tag_set_item_of_xml = function
            X.E("key", _, [X.P key]);
            X.E("value", _, value_opt );
           ] -> (
-            let value_opt = 
+            let value_opt =
               match value_opt with
                 | [] -> None
                 | [X.P value] -> Some value
                 | _ -> raise (Error "tagSet.item:1")
             in
-            object 
+            object
               method resource_id = resource_id
               method resource_type = resource_type
               method key = key
@@ -830,7 +834,7 @@ let tag_set_item_of_xml = function
 let describe_tags_response_of_xml = function
   | X.E("DescribeTagsResponse", _, kids ) -> (
       match find_kids kids "tagSet" with
-        | Some tag_set_items  -> List.map tag_set_item_of_xml tag_set_items 
+        | Some tag_set_items  -> List.map tag_set_item_of_xml tag_set_items
         | None -> raise (Error "DescribeTagsResponse:1")
     )
   | _ -> raise (Error "DescribeTagsResponse:2")
@@ -853,9 +857,9 @@ let create_tags creds tags =
     fun (count, accu) tag ->
       let resource = sprint "ResourceId.%d" count, tag#resource_id in
       let key = sprint "Tag.%d.Key" count, tag#key in
-      let value = sprint "Tag.%d.Value" count, 
+      let value = sprint "Tag.%d.Value" count,
         (match tag#value_opt with
-          | None -> "" 
+          | None -> ""
           | Some value -> value
         ) in
       count+1, resource :: key :: value :: accu
@@ -866,7 +870,7 @@ let create_tags creds tags =
     return `Ok
   with
     | HC.Http_error (_,_,body) -> return (error_msg body)
-  
+
 let delete_tags creds tags =
   let args = ["Action", "DeleteTags"] in
   let _,  args = List.fold_left (
@@ -889,4 +893,4 @@ let delete_tags creds tags =
   with
     | HC.Http_error (_,_,body) -> return (error_msg body)
 
-end  
+end
