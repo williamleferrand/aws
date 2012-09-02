@@ -1,5 +1,5 @@
 Package to provide OCaml client access to Amazon services : S3,
-EC2, SQS, SDB, FPS.
+EC2, SQS, SDB, FPS, IAM, DynamoDb, SES.
 
 Aws depends directly on the following packages:
 
