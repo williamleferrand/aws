@@ -11,6 +11,10 @@ Flag all
   Description: all
   Default: false
 
+Flag tools
+  Description: tools
+  Default: false
+
 Flag cohttp
   Description: cohttp
   Default: true
@@ -50,8 +54,8 @@ Library "ocsigen"
 Executable backup
   Path:         tools
   MainIs:       backup.ml
-  Build$:     flag(cohttp) || flag(all)
-  Install$:   flag(cohttp) || flag(all)
+  Build$:     flag(cohttp) && flag(tools)
+  Install$:   flag(cohttp) && flag(tools)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
@@ -59,8 +63,8 @@ Executable backup
 Executable s3c
   Path:         tools
   MainIs:       s3c.ml
-  Build$:     flag(cohttp) || flag(all)
-  Install$:   flag(cohttp) || flag(all)
+  Build$:     flag(cohttp) && flag(tools)
+  Install$:   flag(cohttp) && flag(tools)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
@@ -68,8 +72,8 @@ Executable s3c
 Executable ec2sh
   Path:         tools
   MainIs:       ec2sh.ml
-  Build$:     flag(cohttp) || flag(all)
-  Install$:   flag(cohttp) || flag(all)
+  Build$:     flag(cohttp) && flag(tools)
+  Install$:   flag(cohttp) && flag(tools)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
@@ -77,8 +81,8 @@ Executable ec2sh
 Executable listdomain
   Path:         tools
   MainIs:       listdomain.ml
-  Build$:     flag(cohttp) || flag(all)
-  Install$:   flag(cohttp) || flag(all)
+  Build$:     flag(cohttp) && flag(tools)
+  Install$:   flag(cohttp) && flag(tools)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
@@ -86,8 +90,8 @@ Executable listdomain
 Executable update
   Path:         tools
   MainIs:       update.ml
-  Build$:     flag(cohttp) || flag(all)
-  Install$:   flag(cohttp) || flag(all)
+  Build$:     flag(cohttp) && flag(tools)
+  Install$:   flag(cohttp) && flag(tools)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
@@ -95,8 +99,8 @@ Executable update
 Executable deldomain
   Path:         tools
   MainIs:       deldomains.ml
-  Build$:     flag(cohttp) || flag(all)
-  Install$:   flag(cohttp) || flag(all)
+  Build$:     flag(cohttp) && flag(tools)
+  Install$:   flag(cohttp) && flag(tools)
   ByteOpt: -thread
   NativeOpt: -thread
   CompiledObject: best
