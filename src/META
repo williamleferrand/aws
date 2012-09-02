@@ -1,0 +1,36 @@
+# OASIS_START
+# DO NOT EDIT (digest: b73e213638d942cd68f42e4ae32783d7)
+version = "0.0.2"
+description = "aws client lib for amazon web services"
+requires =
+"lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm yojson"
+archive(byte) = "aws.cma"
+archive(byte, plugin) = "aws.cma"
+archive(native) = "aws.cmxa"
+archive(native, plugin) = "aws.cmxs"
+exists_if = "aws.cma"
+package "ocsigen" (
+ version = "0.0.2"
+ description = "aws client lib for amazon web services"
+ requires =
+ "lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm ocsigenserver aws"
+ archive(byte) = "ocsigen.cma"
+ archive(byte, plugin) = "ocsigen.cma"
+ archive(native) = "ocsigen.cmxa"
+ archive(native, plugin) = "ocsigen.cmxs"
+ exists_if = "ocsigen.cma"
+)
+
+package "cohttp" (
+ version = "0.0.2"
+ description = "aws client lib for amazon web services"
+ requires =
+ "lwt lwt.unix lwt.syntax netstring pcre cryptokit netstring calendar xmlm cohttp aws"
+ archive(byte) = "cohttp.cma"
+ archive(byte, plugin) = "cohttp.cma"
+ archive(native) = "cohttp.cmxa"
+ archive(native, plugin) = "cohttp.cmxs"
+ exists_if = "cohttp.cma"
+)
+# OASIS_STOP
+

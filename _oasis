@@ -1,50 +1,83 @@
-OASISFormat: 0.1
-Name: aws
-Version: 0.0.1
-LicenseFile: COPYING
-License: PROP
-Authors: 
-BuildTools: ocamlbuild
-Plugins: DevFiles (0.2), META (0.2)
-Synopsis: aws client lib for amazon web services
+OASISFormat: 0.3
+Name:        aws
+Version:     0.0.2
+Synopsis:    aws client lib for amazon web services
+Authors:     Barko, William Le Ferrand, Hhugo
+License:     MIT
+Plugins:     DevFiles (0.3), META (0.3), StdFiles (0.3)
+BuildTools:  ocamlbuild
+
+Flag all
+  Description: all
+  Default: false
 
 Flag cohttp
-  Description: cohttp 
+  Description: cohttp
   Default: true
 
-Library "aws"
-  Install$: true
-  Path: lib
-  ByteOpt: -annot
-  NativeOpt: -annot
-  Modules: Creds, Aws_sigs, Xml, Aws_util, Http_method, EC2_factory, SDB_factory, S3_factory, SQS_factory, Policy
-  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, cohttp, yojson
+Flag ocsigen
+  Description: ocsigen
+  Default: true
 
-Library "aws-cohttp"
-  Build$: flag(cohttp) || flag(all)
-  Install$: flag(cohttp) || flag(all)
-  FindlibName: cohttp
+Library aws
+  Path:       src
+  Modules:    Creds, Aws_sigs, Xml, Aws_util, Policy,
+              EC2_factory, SDB_factory, S3_factory, SQS_factory, FPS_factory
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre,
+                cryptokit, netstring, calendar, xmlm, yojson
+
+Library "cohttp"
+  Path:       src/cohttp
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
+  Modules:    EC2, SDB, S3, SQS, FPS
   FindlibParent: aws
-  ByteOpt: -annot
-  NativeOpt: -annot 
-  Path: lib
-  Modules: EC2, SDB, S3, SQS
-  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre, cryptokit, netstring, calendar, xmlm, aws, cohttp
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre,
+                cryptokit, netstring, calendar, xmlm, cohttp, aws
 
+Library "ocsigen"
+  Path:       src/ocsigen
+  Build$:     flag(ocsigen) || flag(all)
+  Install$:   flag(ocsigen) || flag(all)
+  Modules:    EC2, SDB, S3, SQS, FPS
+  ByteOpt: -thread
+  NativeOpt: -thread
+  FindlibParent: aws
+  BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre,
+                cryptokit, netstring, calendar, xmlm, ocsigenserver, aws
 
 Executable backup
   Path:         tools
   MainIs:       backup.ml
-  Install:      false
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
 
+Executable s3c
+  Path:         tools
+  MainIs:       s3c.ml
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
+  ByteOpt: -thread
+  NativeOpt: -thread
+  BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
+
+Executable ec2sh
+  Path:         tools
+  MainIs:       ec2sh.ml
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
+  ByteOpt: -thread
+  NativeOpt: -thread
+  BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
 
 Executable listdomain
   Path:         tools
   MainIs:       listdomain.ml
-  Install:      false
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
@@ -52,17 +85,18 @@ Executable listdomain
 Executable update
   Path:         tools
   MainIs:       update.ml
-  Install:      false
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
   ByteOpt: -thread
   NativeOpt: -thread
   BuildDepends: lwt, lwt.syntax,netstring,cryptokit,calendar, xmlm, cohttp, str, lwt.unix, unix
 
-
 Executable deldomain
   Path:         tools
   MainIs:       deldomains.ml
-  Install:      false
-  ByteOpt: -thread 
+  Build$:     flag(cohttp) || flag(all)
+  Install$:   flag(cohttp) || flag(all)
+  ByteOpt: -thread
   NativeOpt: -thread
   CompiledObject: best
   BuildDepends: aws.cohttp

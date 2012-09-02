@@ -1,5 +1,5 @@
 module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
-  struct 
+  struct
 
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
@@ -7,22 +7,21 @@ module K = Cryptokit
 
 module X = Xml
 
-open Http_method
 open Lwt
 
 module Util = Aws_util
 
 let sprintf = Printf.sprintf
 
-type region = [ 
-| `US_EAST_1 
-| `US_WEST_1 
-| `US_WEST_2 
-| `EU_WEST_1 
-| `AP_SOUTHEAST_1 
+type region = [
+| `US_EAST_1
+| `US_WEST_1
+| `US_WEST_2
+| `EU_WEST_1
+| `AP_SOUTHEAST_1
 | `AP_NORTHEAST_1 ]
 
-let string_of_region = function 
+let string_of_region = function
   | `US_EAST_1      -> "us-east-1"
   | `US_WEST_1      -> "us-west-1"
   | `US_WEST_2      -> "us-west-2"
@@ -30,13 +29,13 @@ let string_of_region = function
   | `AP_SOUTHEAST_1 -> "ap-southeast-1"
   | `AP_NORTHEAST_1 -> "ap-northeast-1"
 
-let region_of_string = function 
-  | "us-east-1"        -> `US_EAST_1      
-  | "us-west-1"        -> `US_WEST_1      
-  | "us-west-2"        -> `US_WEST_2      
-  | "eu-west-1"        -> `EU_WEST_1      
-  | "ap-southeast-1"   -> `AP_SOUTHEAST_1 
-  | "ap-northeast-1"   -> `AP_NORTHEAST_1 
+let region_of_string = function
+  | "us-east-1"        -> `US_EAST_1
+  | "us-west-1"        -> `US_WEST_1
+  | "us-west-2"        -> `US_WEST_2
+  | "eu-west-1"        -> `EU_WEST_1
+  | "ap-southeast-1"   -> `AP_SOUTHEAST_1
+  | "ap-northeast-1"   -> `AP_NORTHEAST_1
   | x                  -> raise (Invalid_argument ("string_of_region: " ^ x))
 
 let service_url_of_region = function
@@ -47,13 +46,13 @@ let service_url_of_region = function
   | `AP_SOUTHEAST_1 -> "http://s3-ap-southeast-1.amazonaws.com/"
   | `AP_NORTHEAST_1 -> "http://s3-ap-northeast-1.amazonaws.com/"
 
-let create_bucket_configuration_xml s = 
-  sprintf 
+let create_bucket_configuration_xml s =
+  sprintf
     "<CreateBucketConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">
        <LocationConstraint>%s</LocationConstraint>
-     </CreateBucketConfiguration>" 
+     </CreateBucketConfiguration>"
     s
-    
+
 (* wow this is bad *)
 let location_constraint_xml_of_region = function
   | `US_EAST_1      -> ""
@@ -66,13 +65,13 @@ let location_constraint_xml_of_region = function
 let now_as_string () =
   P.sprint "%a, %d %b %Y %H:%M:%S GMT" (C.now ())
 
-type amz_acl = [ 
+type amz_acl = [
 | `Private (* not using [`private] because [private] is an ocaml keyword *)
-| `public_read 
-| `public_read_write 
-| `authenticated_read 
-| `bucket_owner_read 
-| `bucket_owner_full_control 
+| `public_read
+| `public_read_write
+| `authenticated_read
+| `bucket_owner_read
+| `bucket_owner_full_control
 ]
 
 
@@ -97,7 +96,7 @@ let group_by_key kv_list =
   let map = List.fold_left (
     fun map (k,v) ->
       let v_list =
-        try 
+        try
           StringMap.find k map
         with Not_found ->
           []
@@ -110,11 +109,11 @@ let group_by_key kv_list =
       (k, v_list) :: accu
   ) map []
 
-let find_element kids key = 
+let find_element kids key =
   try
     Some (
       List.find (
-        fun kid -> 
+        fun kid ->
           match kid with
             | X.E ( k, _, _ ) when k = key -> true
             | _ -> false
@@ -132,11 +131,11 @@ let find_p_child_fail kids key =
     | Some _ -> raise (Error ("\"" ^ key ^ "\" doesn't have data child"))
 
 (* replace a substring of whitespace with a single space *)
-let squash_whitespace = 
+let squash_whitespace =
   Pcre.replace ~rex:(Pcre.regexp "[[:space:]]+") ~templ:" "
 
-type sub_resource = [ 
-| `acl 
+type sub_resource = [
+| `acl
 | `location
 | `logging
 | `notification
@@ -152,14 +151,14 @@ type sub_resource = [
 ]
 
 let sub_resource_of_string = function
-| "acl"            -> `acl 
+| "acl"            -> `acl
 | "location"       -> `location
 | "logging"        -> `logging
 | "notification"   -> `notification
 | "partNumber"     -> `part_number
 | "policy"         -> `policy
 | "requestPayment" -> `request_payment
-| "torrent"        -> `torrent 
+| "torrent"        -> `torrent
 | "uploadId"       -> `upload_id
 | "uploads"        -> `uploads
 | "versionId"      -> `version_id
@@ -168,19 +167,19 @@ let sub_resource_of_string = function
 | _ -> raise (Error "subresource")
 
 let string_of_sub_resource = function
-| `acl              -> "acl"            
-| `location         -> "location"       
-| `logging          -> "logging"        
-| `notification     -> "notification"   
-| `part_number      -> "partNumber"     
-| `policy           -> "policy"         
-| `request_payment  -> "requestPayment" 
-| `torrent          -> "torrent"        
-| `upload_id        -> "uploadId"       
-| `uploads          -> "uploads"        
-| `version_id       -> "versionId"      
-| `versioning       -> "versioning"     
-| `versions         -> "versions"       
+| `acl              -> "acl"
+| `location         -> "location"
+| `logging          -> "logging"
+| `notification     -> "notification"
+| `part_number      -> "partNumber"
+| `policy           -> "policy"
+| `request_payment  -> "requestPayment"
+| `torrent          -> "torrent"
+| `upload_id        -> "uploadId"
+| `uploads          -> "uploads"
+| `version_id       -> "versionId"
+| `versioning       -> "versioning"
+| `versions         -> "versions"
 
 class buffer size =
   let b = Buffer.create size in
@@ -194,24 +193,24 @@ let auth_hdr
     ?(content_type="")
     ?(content_md5="")
     ?(date="")
-    ?(bucket="") 
+    ?(bucket="")
     ?(request_uri="")
     ?(amz_headers=[])
     ?(sub_resources=[])
     creds =
 
-  let canonicalized_amz_headers = 
+  let canonicalized_amz_headers =
     match amz_headers with
       | [] -> ""
       | _ -> (
         let downcased_keys = List.map (
           fun (k,v) -> String.lowercase k, squash_whitespace v
-        ) amz_headers 
+        ) amz_headers
         in
         let grouped = group_by_key downcased_keys in
         let merged_values = List.map (
           fun (k,v_list) -> k, (String.concat "," v_list)
-        ) grouped 
+        ) grouped
         in
         let sorted_by_key = Util.sort_assoc_list merged_values in
 
@@ -224,7 +223,7 @@ let auth_hdr
       )
   in
 
-  let canonicalized_sub_resources = 
+  let canonicalized_sub_resources =
     match sub_resources with
       | [] -> ""
       | _ -> (
@@ -250,9 +249,9 @@ let auth_hdr
     "/" ^ bucket ^ request_uri ^ canonicalized_sub_resources
   in
 
-  let string_to_sign = 
+  let string_to_sign =
     let buf = new buffer 100 in
-    buf#add (Http_method.string_of_t http_method); buf#add "\n";
+    buf#add (Util.string_of_t http_method); buf#add "\n";
     buf#add content_md5; buf#add "\n";
     buf#add content_type; buf#add "\n";
     buf#add date; buf#add "\n";
@@ -265,24 +264,24 @@ let auth_hdr
 
 
 let error_msg body =
-  
+
   (* <Error><Code>SomeMessage</Code>...</Error> *)
   try
     match X.xml_of_string body with
       | X.E ("Error",_, kids ) -> (
-        match find_element kids "Code" with 
+        match find_element kids "Code" with
           | Some (X.E( "Code", _, [X.P msg] )) -> return (`Error msg)
           | _ -> fail (Error body)
       )
 
-      | _ -> 
+      | _ ->
         (* complain if can't interpret the xml, and then just use the
          entire body as the payload for the exception *)
         fail (Error body)
 
   with Xmlm.Error (_,err) ->
     fail (Error body)
-    
+
 
 let s3_region_regexp = Pcre.regexp "s3(-(.*))?"
 
@@ -291,7 +290,7 @@ let region_of_endpoint s =
     | [ _bucket ; s3_region_s ; "amazonaws" ; "com" ] -> (
       (match Pcre.extract ~rex:s3_region_regexp s3_region_s with
         | [| _; _; region_s |] ->  (
-          try 
+          try
             Some (region_of_string region_s)
           with Invalid_argument _ ->
             None
@@ -308,7 +307,7 @@ let region_of_endpoint s =
    the correct region for that bucket, the redirected endpoint is
    <bucket>.s3.amazonaws.com, which does not reveal the correct region
    of the bucket. *)
-let permanent_redirect_of_string body = 
+let permanent_redirect_of_string body =
   (* <Endpoint>mybucket.us-west-1.s3.amazonaws.com</Endpoint>, or
      <Endpoint>mybucket.s3.amazonaws.com</Endpoint>
   *)
@@ -316,9 +315,9 @@ let permanent_redirect_of_string body =
     match X.xml_of_string body with
       | X.E ("Error",_, kids ) -> (
 
-        match 
-          find_element kids "Code", 
-          find_element kids "Endpoint" 
+        match
+          find_element kids "Code",
+          find_element kids "Endpoint"
         with
           | Some (X.E( "Code", _, [X.P "PermanentRedirect"] )),
             Some (X.E( "Endpoint", _, [X.P endpoint] )) ->
@@ -329,7 +328,7 @@ let permanent_redirect_of_string body =
 
       )
 
-      | _ -> 
+      | _ ->
         (* complain if can't interpret the xml, and then just use the
          entire body as the payload for the exception *)
         fail (Error body)
@@ -339,33 +338,33 @@ let permanent_redirect_of_string body =
 
 let get_object_h creds_opt region ~bucket ~objekt  =
   let date = now_as_string () in
-  let authorization_header = 
+  let authorization_header =
     match creds_opt with
       | None -> [] (* anonymous *)
       | Some creds ->
-        [ auth_hdr 
-          ~http_method:`GET 
-          ~date 
-          ~bucket 
-          ~request_uri:("/" ^ objekt) 
+        [ auth_hdr
+          ~http_method:`GET
+          ~date
+          ~bucket
+          ~request_uri:("/" ^ objekt)
           creds
         ]
   in
-        
+
   let headers = ("Date", date) :: authorization_header in
-  let request_url = sprintf "%s%s/%s" (service_url_of_region region) 
-    (Util.encode_url bucket) (objekt) 
+  let request_url = sprintf "%s%s/%s" (service_url_of_region region)
+    (Util.encode_url bucket) (objekt)
   in
   headers, request_url
 
 (* get object *)
 let get_object_s creds_opt region ~bucket ~objekt =
   let headers, request_url = get_object_h creds_opt region ~bucket ~objekt  in
-  
+
   try_lwt
     lwt _, body = HC.get ~headers request_url in
     return (`Ok body)
-  with 
+  with
     | HC.Http_error (404,_,_) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_, _, body) -> (
@@ -376,7 +375,7 @@ let get_object_s creds_opt region ~bucket ~objekt =
 
 let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
   let headers, request_url = get_object_h creds_opt region ~bucket ~objekt in
-  let byte_range_header = 
+  let byte_range_header =
     match byte_range with
       | None -> []
       | Some (start,fini) -> ["Range", sprintf "bytes=%d-%d" start fini]
@@ -388,19 +387,19 @@ let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
     (* close (a possibly already closed) channel *)
     try_lwt Lwt_io.close outchan with _ -> return ()
   in
-  lwt res = 
+  lwt res =
     try_lwt
       lwt _ = HC.get_to_chan ~headers request_url outchan in
       return `Ok
-    with 
+    with
       | HC.Http_error (404,_,_) -> return `NotFound
-      | HC.Http_error (301,_,_) -> 
-        (* error message possibly stored in body, so read it 
+      | HC.Http_error (301,_,_) ->
+        (* error message possibly stored in body, so read it
            back from the file in which it was just stored: *)
         lwt () = close_no_err () in
         lwt body = Util.file_contents path in
         permanent_redirect_of_string body
-      | HC.Http_error (_, _,_) -> 
+      | HC.Http_error (_, _,_) ->
         lwt () = close_no_err () in
         lwt body = Util.file_contents path in
         error_msg body >>= function
@@ -409,38 +408,38 @@ let get_object ?byte_range creds_opt region ~bucket ~objekt ~path =
   in
   lwt () = close_no_err () in
   return res
-  
+
 (* create bucket *)
 let create_bucket creds region bucket amz_acl =
   let date = now_as_string () in
   let amz_headers = ["x-amz-acl", string_of_amz_acl amz_acl ] in
   let request_url = sprintf "%s%s" (service_url_of_region region) bucket in
   let body = location_constraint_xml_of_region region in
-  
-  (* [Http_client] puts a default content type whenever there's a 
-     non-empty body; since that contenty-type must figure into the 
+
+  (* [Http_client] puts a default content type whenever there's a
+     non-empty body; since that contenty-type must figure into the
      signature, we have to explicity set it here *)
   let content_type = "application/xml" in
 
-  let authorization_header = auth_hdr 
-    ~http_method:`PUT ~bucket ~amz_headers ~date ~content_type creds 
+  let authorization_header = auth_hdr
+    ~http_method:`PUT ~bucket ~amz_headers ~date ~content_type creds
   in
-  let headers = authorization_header :: 
-    ("Date", date) :: 
+  let headers = authorization_header ::
+    ("Date", date) ::
     ("Content-Type", content_type) ::
     amz_headers in
   try_lwt
     lwt _ = HC.put ~headers ~body:(`String body) request_url in
     return `Ok
   with HC.Http_error (_, _, body) ->
-    error_msg body 
+    error_msg body
 
 
 (* delete bucket *)
 let delete_bucket creds region bucket =
   let date = now_as_string () in
-  let authorization_header = auth_hdr 
-    ~http_method:`DELETE ~bucket ~date creds  
+  let authorization_header = auth_hdr
+    ~http_method:`DELETE ~bucket ~date creds
   in
   let service_url = service_url_of_region region in
   let request_url = sprintf "%s%s" service_url (Util.encode_url bucket) in
@@ -449,25 +448,25 @@ let delete_bucket creds region bucket =
     lwt _ = HC.delete ~headers request_url in
     (* success signaled via a 204 *)
     fail (Error "delete_bucket")
-  with 
+  with
     | HC.Http_error (204, _, _   ) -> return `Ok
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
-    | HC.Http_error (_  , _, body) -> error_msg body 
+    | HC.Http_error (_  , _, body) -> error_msg body
 
 (* list buckets *)
 let rec bucket = function
   | X.E (
     "Bucket",_, [
-      X.E ("Name",_,        [X.P name           ]) ;  
-      X.E ("CreationDate",_,[X.P creation_date_s]) 
+      X.E ("Name",_,        [X.P name           ]) ;
+      X.E ("CreationDate",_,[X.P creation_date_s])
     ] )->
-    (name (* object
+    (object
       method name = name
       method creation_date = creation_date_s
-     end *))
+     end)
   | _ -> raise (Error "ListAllMyBucketsResult:2")
 
-and list_all_my_buckets_result_of_xml = function 
+and list_all_my_buckets_result_of_xml = function
   | X.E ("ListAllMyBucketsResult",_, [_ ; X.E ("Buckets",_,buckets) ] ) ->
     List.map bucket buckets
   | _ -> raise (Error "ListAllMyBucketsResult:1")
@@ -484,7 +483,7 @@ let list_buckets creds region =
       return (`Ok buckets)
     with (Error _) as exn ->
       fail exn
-  with 
+  with
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _, body) -> error_msg body
 
@@ -492,27 +491,27 @@ let list_buckets creds region =
 (* put object *)
 let noop () = return ()
 
-let put_object 
+let put_object
     ?(content_type="binary/octet-stream")
     ?(amz_acl=`Private)
-    creds 
+    creds
     region
-    ~bucket 
-    ~objekt 
+    ~bucket
+    ~objekt
     ~body =
   let date = now_as_string () in
   let amz_headers = [ "x-amz-acl", string_of_amz_acl amz_acl ] in
-  let authorization_header = auth_hdr 
-    ~http_method:`PUT 
-    ~content_type 
+  let authorization_header = auth_hdr
+    ~http_method:`PUT
+    ~content_type
     ~amz_headers
-    ~date 
-    ~bucket 
-    ~request_uri:("/" ^ (Util.encode_url objekt)) 
+    ~date
+    ~bucket
+    ~request_uri:("/" ^ (Util.encode_url objekt))
     creds
   in
-  let bucket_object = (Util.encode_url bucket) ^ "/" ^ 
-    (Util.encode_url objekt) 
+  let bucket_object = (Util.encode_url bucket) ^ "/" ^
+    (Util.encode_url objekt)
   in
   let request_url = (service_url_of_region region) ^ bucket_object in
   let headers = ("Date", date) :: ("Content-Type", content_type) ::
@@ -520,9 +519,9 @@ let put_object
   in
   lwt request_body, close =
     match body with
-      | `String contents -> 
+      | `String contents ->
         return (`String contents, noop)
-      | `File path -> 
+      | `File path ->
         let file_size = Util.file_size path in
         let flags = [Unix.O_RDONLY] in
         lwt inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
@@ -569,7 +568,7 @@ let get_object_metadata creds region ~bucket ~objekt =
     let last_modified_s = find "Last-Modified" in
     let content_length = int_of_string (find "Content-Length") in
     let last_modified = Util.unixfloat_of_amz_date_string last_modified_s in
-    let meta = (object 
+    let meta = (object
       method content_type = content_type
       method etag = etag
       method last_modified = last_modified
@@ -577,12 +576,12 @@ let get_object_metadata creds region ~bucket ~objekt =
     end)
     in
     return (`Ok meta)
-  with 
+  with
     | HC.Http_error (404,_, _   ) -> return `NotFound
-    | HC.Http_error (301,_, body) -> return `PermanentRedirect
+    | HC.Http_error (301,_, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  ,_, body) -> error_msg body
 
-  
+
 (* list objects *)
 let option_pcdata err = function
   | [X.P x] -> Some x
@@ -591,7 +590,7 @@ let option_pcdata err = function
 
 let rec list_bucket_result_of_xml = function
   | X.E ("ListBucketResult",_,kids) -> (
-      match kids with 
+      match kids with
         | X.E ("Name",_,[X.P name]) ::
             X.E ("Prefix",_,prefix_opt) ::
             X.E ("Marker",_,marker_opt) ::
@@ -605,7 +604,7 @@ let rec list_bucket_result_of_xml = function
             let is_truncated = bool_of_string is_truncated in
             let contents = contents_of_xml contents in
 
-            (object 
+            (object
                method name = name
                method prefix = prefix_opt
                method marker = marker_opt
@@ -624,7 +623,7 @@ and contents_of_xml contents =
 
 and objects_of_xml = function
   | X.E ("Contents",_, kids ) ->
-      let key = find_p_child_fail kids "Key" in 
+      let key = find_p_child_fail kids "Key" in
       let etag = find_p_child_fail kids "ETag" in
       let size = find_p_child_fail kids "Size" in
       let storage_class = find_p_child_fail kids "StorageClass" in
@@ -641,7 +640,7 @@ and objects_of_xml = function
               )
             ) ->
               Some (
-                object 
+                object
                   method id = owner_id
                   method display_name = owner_display_name
                 end
@@ -653,29 +652,29 @@ and objects_of_xml = function
       in
       let last_modified = Util.unixfloat_of_amz_date_string last_modified in
       let size = int_of_string size in
-      (object 
+      (object
          method name = key
          method last_modified = last_modified
          method etag = etag
          method size = size
-         method storage_class = storage_class 
+         method storage_class = storage_class
          method owner = identity
        end)
   | _ -> raise (Error "ListBucketResult:c")
-    
+
 
 let list_objects ?prefix ?marker ?max_keys creds region bucket =
   let date = now_as_string () in
   let authorization_header = auth_hdr ~http_method:`GET ~date ~bucket creds in
   let headers = [ "Date", date ; authorization_header ] in
-  
+
   let params = [] in
-  let params = 
+  let params =
     match prefix with
       | None -> params
       | Some p -> ("prefix", p) :: params
   in
-  let params = 
+  let params =
     match marker with
       | None -> params
       | Some m ->  ("marker", m) :: params
@@ -683,23 +682,23 @@ let list_objects ?prefix ?marker ?max_keys creds region bucket =
   let params =
     match max_keys with
       | None -> params
-      | Some mk -> ("max-keys", string_of_int mk) :: params 
+      | Some mk -> ("max-keys", string_of_int mk) :: params
   in
 
-  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^ 
+  let request_url = (service_url_of_region region) ^ (Util.encode_url bucket) ^
     "?" ^ (Netencoding.Url.mk_url_encoded_parameters params) in
 
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
     return (`Ok (list_bucket_result_of_xml (X.xml_of_string response_body)))
-  with 
+  with
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _, body) -> error_msg body
 
 (* get bucket acl *)
 type permission = [
-| `read 
+| `read
 | `write
 | `read_acp
 | `write_acp
@@ -714,7 +713,7 @@ let string_of_permission = function
   | `full_control -> "FULL_CONTROL"
 
 let permission_of_string = function
-  | "READ" -> `read 
+  | "READ" -> `read
   | "WRITE" -> `write
   | "READ_ACP" -> `read_acp
   | "WRITE_ACP" -> `write_acp
@@ -745,7 +744,7 @@ let group_of_string = function
   | "http://acs.amazonaws.com/groups/s3/LogDelivery"       -> `LogDelivery
   | x -> raise (Error (sprintf "invalid group %S" x))
 
-type identity = [ 
+type identity = [
 | `amazon_customer_by_email of string
 | `canonical_user of canonical_user
 | `group of group
@@ -754,7 +753,7 @@ type identity = [
 type grant = identity * permission
 
 class acl owner grants =
-object 
+object
   method owner : identity = owner
   method grants : grant list = grants
 end
@@ -764,12 +763,12 @@ let string_of_identity = function
 | `canonical_user cn -> sprintf "CanonicalUser (%s,%s)" cn#id cn#display_name
 | `group g -> "Group " ^ (string_of_group g)
 
-let tag_of_identity = function 
+let tag_of_identity = function
 | `amazon_customer_by_email _ -> "AmazonCustomerByEmail"
 | `canonical_user _ -> "CanonicalUser"
 | `group _ -> "Group"
 
-let identity_of_xml = function 
+let identity_of_xml = function
   | [X.E ("ID",_,[X.P id]);
      X.E ("DisplayName",_,[X.P display_name])
     ] ->
@@ -807,34 +806,34 @@ let access_control_policy_of_xml = function
 
 let get_bucket_acl creds region bucket =
   let date = now_as_string () in
-  let authorization_header = auth_hdr 
-    ~http_method:`GET 
-    ~date 
-    ~bucket 
-    ~sub_resources:[`acl, None] 
+  let authorization_header = auth_hdr
+    ~http_method:`GET
+    ~date
+    ~bucket
+    ~sub_resources:[`acl, None]
     creds
   in
   let headers = [ "Date", date ; authorization_header ] in
-  let request_url = (service_url_of_region region) ^ 
-    (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl) 
+  let request_url = (service_url_of_region region) ^
+    (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl)
   in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
-    return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body))) 
-  with 
+    return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body)))
+  with
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _, body) -> error_msg body
 
-  
+
 (* set bucket acl *)
-let xml_of_permission permission = 
+let xml_of_permission permission =
   X.E ("Permission",[],[X.P (string_of_permission permission)])
 
 let ns_schema_instance = "http://www.w3.org/2001/XMLSchema-instance"
 let ns_xmlns = "http://www.w3.org/2000/xmlns/"
 
-let atts s = [ 
+let atts s = [
   (ns_xmlns          , "xsi" ), ns_schema_instance;
   (ns_schema_instance, "type"), s
 ]
@@ -850,7 +849,7 @@ let xml_of_identity = function
   | `group group ->
     [X.E("URI",[],[X.P (string_of_group group)])]
 
-let xml_of_grantee identity = 
+let xml_of_grantee identity =
   let identity_x = xml_of_identity identity in
   X.E("Grantee", atts (tag_of_identity identity), identity_x)
 
@@ -858,7 +857,7 @@ let xml_of_owner identity =
   let identity_x = xml_of_identity identity in
   X.E ("Owner",[], identity_x)
 
-let xml_of_grant (grantee, permission) = 
+let xml_of_grant (grantee, permission) =
   let kids = [xml_of_grantee grantee; xml_of_permission permission] in
   X.E("Grant", [], kids)
 
@@ -866,9 +865,9 @@ let xml_of_access_control_list grants =
   X.E("AccessControlList", [], List.map xml_of_grant grants)
 
 let xml_of_access_control_policy acl =
-  let kids = [ 
-    xml_of_owner acl#owner ; 
-    xml_of_access_control_list acl#grants ] 
+  let kids = [
+    xml_of_owner acl#owner ;
+    xml_of_access_control_list acl#grants ]
   in
   X.E ("AccessControlPolicy", [], kids)
 
@@ -878,23 +877,23 @@ let json_content_type_header = "Content-Type", "application/json"
 let set_bucket_acl creds region bucket acl  =
   let date = now_as_string () in
   let authorization_header = auth_hdr
-    ~http_method:`PUT 
+    ~http_method:`PUT
     ~content_type:"application/xml"
-    ~date 
-    ~bucket 
-    ~sub_resources:[`acl, None] 
+    ~date
+    ~bucket
+    ~sub_resources:[`acl, None]
     creds
   in
-  let request_url = (service_url_of_region region) ^ 
-    (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl) 
-  in  
+  let request_url = (service_url_of_region region) ^
+    (Util.encode_url bucket) ^ "?" ^ (string_of_sub_resource `acl)
+  in
   let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
   let body = `String (X.string_of_xml xml) in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok
-  with 
+  with
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _, body) -> error_msg body
@@ -910,10 +909,10 @@ let delete_object creds region ~bucket ~objekt =
     creds
   in
   let service_url = service_url_of_region region in
-  let request_url = sprintf "%s%s/%s" service_url (Util.encode_url bucket) 
-    (Util.encode_url objekt) 
+  let request_url = sprintf "%s%s/%s" service_url (Util.encode_url bucket)
+    (Util.encode_url objekt)
   in
-  let headers = [ "Date", date ; authorization_header ] in    
+  let headers = [ "Date", date ; authorization_header ] in
   try_lwt
     lwt _ = HC.delete ~headers request_url in
     (* success actually signaled via a 204 *)
@@ -927,23 +926,23 @@ let delete_object creds region ~bucket ~objekt =
 (* get object acl *)
 let get_object_acl creds region ~bucket ~objekt =
   let date = now_as_string () in
-  let authorization_header = auth_hdr 
-    ~http_method:`GET 
-    ~date 
-    ~bucket 
+  let authorization_header = auth_hdr
+    ~http_method:`GET
+    ~date
+    ~bucket
     ~request_uri:("/" ^ objekt)
-    ~sub_resources:[`acl, None] 
+    ~sub_resources:[`acl, None]
     creds
   in
   let headers = [ "Date", date ; authorization_header ] in
   let request_url = sprintf "%s%s/%s?%s" (service_url_of_region region)
-    (Util.encode_url bucket) (Util.encode_url objekt) 
-    (string_of_sub_resource `acl) 
+    (Util.encode_url bucket) (Util.encode_url objekt)
+    (string_of_sub_resource `acl)
   in
   try_lwt
     lwt response_headers, response_body = HC.get ~headers request_url in
-    return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body))) 
-  with 
+    return (`Ok (access_control_policy_of_xml (X.xml_of_string response_body)))
+  with
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _, body) -> error_msg body
@@ -951,24 +950,24 @@ let get_object_acl creds region ~bucket ~objekt =
 let set_object_acl creds region ~bucket ~objekt acl  =
   let date = now_as_string () in
   let authorization_header = auth_hdr
-    ~http_method:`PUT 
+    ~http_method:`PUT
     ~content_type:"application/xml"
-    ~date 
-    ~bucket 
+    ~date
+    ~bucket
     ~request_uri:("/" ^ objekt)
-    ~sub_resources:[`acl, None] 
+    ~sub_resources:[`acl, None]
     creds
   in
   let request_url = sprintf "%s%s/%s?%s" (service_url_of_region region)
-    (Util.encode_url bucket) (Util.encode_url objekt) (string_of_sub_resource `acl) 
-  in  
+    (Util.encode_url bucket) (Util.encode_url objekt) (string_of_sub_resource `acl)
+  in
   let headers = [ "Date", date ; xml_content_type_header; authorization_header ] in
   let xml = xml_of_access_control_policy acl in
   let body = `String (X.string_of_xml xml) in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok
-  with 
+  with
     | HC.Http_error (404, _, _   ) -> return `NotFound
     | HC.Http_error (301, _, body) -> permanent_redirect_of_string body
     | HC.Http_error (_  , _ ,body) -> error_msg body
@@ -977,19 +976,19 @@ let get_bucket_policy creds region ~bucket =
   let date = now_as_string () in
   let authorization_header = auth_hdr
     ~http_method:`GET
-    ~date 
-    ~bucket 
-    ~sub_resources:[`policy, None] 
+    ~date
+    ~bucket
+    ~sub_resources:[`policy, None]
     creds
   in
   let request_url = sprintf "%s%s?%s" (service_url_of_region region)
-    (Util.encode_url bucket) (string_of_sub_resource `policy) 
-  in  
+    (Util.encode_url bucket) (string_of_sub_resource `policy)
+  in
   let headers = [ "Date", date ; authorization_header ] in
   try_lwt
     lwt _, response_body = HC.get ~headers request_url in
     return (`Ok response_body)
-  with 
+  with
     | HC.Http_error (403, _, _   ) -> return `AccessDenied
     | HC.Http_error (405, _, body) -> return `NotOwner
     | HC.Http_error (404, _, body) -> return `NotFound
@@ -999,18 +998,18 @@ let delete_bucket_policy creds region ~bucket =
   let date = now_as_string () in
   let authorization_header = auth_hdr
     ~http_method:`DELETE
-    ~date 
-    ~bucket 
-    ~sub_resources:[`policy, None] 
+    ~date
+    ~bucket
+    ~sub_resources:[`policy, None]
     creds
   in
   let request_url = sprintf "%s%s?%s" (service_url_of_region region)
-    (Util.encode_url bucket) (string_of_sub_resource `policy) 
-  in  
+    (Util.encode_url bucket) (string_of_sub_resource `policy)
+  in
   let headers = [ "Date", date ; authorization_header ] in
   try_lwt
     HC.delete ~headers request_url >> return `Ok
-  with 
+  with
     | HC.Http_error (204, _, _) -> return `Ok
 
     | HC.Http_error (403, _, _   ) -> return `AccessDenied
@@ -1021,21 +1020,21 @@ let set_bucket_policy creds region ~bucket ~policy =
   let date = now_as_string () in
   let authorization_header = auth_hdr
     ~http_method:`PUT
-    ~date 
-    ~bucket 
-    ~sub_resources:[`policy, None] 
+    ~date
+    ~bucket
+    ~sub_resources:[`policy, None]
     ~content_type:(snd json_content_type_header)
     creds
   in
   let request_url = sprintf "%s%s?%s" (service_url_of_region region)
-    (Util.encode_url bucket) (string_of_sub_resource `policy) 
-  in  
+    (Util.encode_url bucket) (string_of_sub_resource `policy)
+  in
   let headers = [ "Date", date ; json_content_type_header; authorization_header ] in
   let body = `String policy in
   try_lwt
     lwt _ = HC.put ~headers ~body request_url in
     return `Ok
-  with 
+  with
     | HC.Http_error (204, _, _) -> return `Ok
     | HC.Http_error (403, _, _   ) -> return `AccessDenied
     | HC.Http_error (400, _, _) -> return `MalformedPolicy
@@ -1043,7 +1042,7 @@ let set_bucket_policy creds region ~bucket ~policy =
 
 end
 
-(* Copyright (c) 2011: 
+(* Copyright (c) 2011:
 
       barko 00336ea19fcb53de187740c490f764f4
       William Le Ferrand
@@ -1053,7 +1052,7 @@ end
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
    met:
-   
+
    1. Redistributions of source code must retain the above copyright
    notice, this list of conditions and the following disclaimer.
 

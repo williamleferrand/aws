@@ -1,5 +1,5 @@
-Package to provide OCaml client access to Amazon services, such as S3,
-EC2, SQS, SDB etc.
+Package to provide OCaml client access to Amazon services : S3,
+EC2, SQS, SDB, FPS.
 
 Aws depends directly on the following packages:
 
@@ -9,7 +9,7 @@ Aws depends directly on the following packages:
 -  lwt
 -  [xmlm](http://github.com/samoht/xmlm)
 -  [cohttp](http://github.com/williamleferrand/ocaml-cohttp)
--  yojson 
+-  yojson
 -  (eventually) ocsigen
 
-All of the packages except the last two are available via GODI.  
+All of the packages except the last two are available via GODI.

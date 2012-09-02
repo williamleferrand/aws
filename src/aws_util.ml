@@ -1,6 +1,6 @@
 (* Miscellaneous *****************************************************************)
 
-let remove_newline = 
+let remove_newline =
   Pcre.replace ~rex:(Pcre.regexp "\n") ~templ:""
 
 let base64 str =
@@ -12,42 +12,41 @@ let base64 str =
      newlines.  Unfortunately, [encode_compact] has neither. *)
   remove_newline encoded
 
-
 let base64_decoder str =
-  let b64_decoded = Cryptokit.Base64.decode () in 
+  let b64_decoded = Cryptokit.Base64.decode () in
   let decoded = Cryptokit.transform_string b64_decoded str in
-  decoded 
+  decoded
 
 let colon_space (k, v) = k ^ ": " ^ v
 
-let encode_url ?(safe=false) str = 
-(*  if not safe then 
-    Netencoding.Url.encode ~plus:false str
-  else *)
-    begin
-      let strlist = ref [] in 
-      for i = 0 to String.length str - 1 do 
-        let c = Char.code (str.[i]) in 
-        if 
-          (65 <= c && c <= 90) || 
-            (48 <= c && c <= 57 ) || 
-            (97 <= c && c <= 122) || 
-            (c = 126) || 
-            (c = 95) || 
-            (c = 46) || 
-            (c = 45) (* ||
-            (c = 47) *)
-        then  
-	  strlist := Printf.sprintf "%c" str.[i] :: !strlist 
-        else 
-	  strlist :=  Printf.sprintf "%%%X" c :: !strlist 
-      done ;
-      String.concat "" (List.rev !strlist) 
-    end
+let encode_url ?(safe=false) str =
+    (*  if not safe then
+	Netencoding.Url.encode ~plus:false str
+	else *)
+  begin
+    let strlist = ref [] in
+    for i = 0 to String.length str - 1 do
+      let c = Char.code (str.[i]) in
+      if
+        (65 <= c && c <= 90) ||
+          (48 <= c && c <= 57 ) ||
+          (97 <= c && c <= 122) ||
+          (c = 126) ||
+          (c = 95) ||
+          (c = 46) ||
+          (c = 45) (* ||
+		      (c = 47) *)
+      then
+	strlist := Printf.sprintf "%c" str.[i] :: !strlist
+      else
+	strlist :=  Printf.sprintf "%%%X" c :: !strlist
+    done ;
+    String.concat "" (List.rev !strlist)
+  end
 
-let encode_key_equals_value ?(safe=false) kvs = 
+let encode_key_equals_value ?(safe=false) kvs =
   List.map (
-    fun (k,v) -> 
+    fun (k,v) ->
       (encode_url ~safe k) ^ "=" ^ (encode_url ~safe v)
   ) kvs
 
@@ -57,18 +56,18 @@ let encode_key_equals_value ?(safe=false) kvs =
 let url_params uri =
   match Pcre.split ~pat:"\\?" uri with
     | [before_question_mark ; after_question_mark] ->
-        let kvs = Pcre.split ~pat:"&" after_question_mark in
-        List.fold_left (
-          fun accu kv ->
-            match Pcre.split ~max:2 ~pat:"=" kv with (* "x=y=z" -> ["x";"y=z"] *)
-              | [k; v] ->
-                  let kv = Netencoding.Url.decode k, Netencoding.Url.decode v in
-                  kv :: accu
-              | [k] ->
-                  let kv = Netencoding.Url.decode k, "" in
-                  kv :: accu
-              | _ -> accu
-        ) [] kvs
+      let kvs = Pcre.split ~pat:"&" after_question_mark in
+      List.fold_left (
+        fun accu kv ->
+          match Pcre.split ~max:2 ~pat:"=" kv with (* "x=y=z" -> ["x";"y=z"] *)
+            | [k; v] ->
+              let kv = Netencoding.Url.decode k, Netencoding.Url.decode v in
+              kv :: accu
+            | [k] ->
+              let kv = Netencoding.Url.decode k, "" in
+              kv :: accu
+            | _ -> accu
+      ) [] kvs
     | _ -> []
 
 
@@ -78,11 +77,11 @@ let file_size path =
 
 let xml_declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 
-let sort_assoc_list kv_list = 
+let sort_assoc_list kv_list =
   List.sort (fun (k1,_) (k2,_) -> String.compare k1 k2) kv_list
-    
-let getenv_else_exit k = 
-  try 
+
+let getenv_else_exit k =
+  try
     Unix.getenv k
   with Not_found ->
     failwith (Printf.sprintf "environment variable %S not set\n%!" k)
@@ -92,7 +91,7 @@ let creds_of_env () = {
   aws_access_key_id = getenv_else_exit "AWS_ACCESS_KEY_ID";
   aws_secret_access_key = getenv_else_exit "AWS_SECRET_ACCESS_KEY"
 }
-  
+
 
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
@@ -105,7 +104,7 @@ let unixfloat_of_amz_date_string str =
       Scanf.sscanf str "%d-%d-%dT%d:%d:%d.%dZ" (
         fun year month day hour minute second millisecond ->
           year, month, day, hour, minute, second, millisecond
-      ) 
+      )
     in
     let z = C.make year month day hour minute second in
     let t = C.to_unixfloat z  in
@@ -136,21 +135,20 @@ let now_as_string () =
   amz_date_string_of_unixfloat (Unix.gettimeofday ())
 
 
-let rec list_map_i f list =
-  loop f 0 [] list
-
-and loop f j accu = function
-  | [] -> List.rev accu 
-  | h :: t ->
-    let m = f j h in
-    loop f (j+1) (m::accu) t
+let list_map_i f list =
+  let rec loop f j accu = function
+    | [] -> List.rev accu
+    | h :: t ->
+      let m = f j h in
+      loop f (j+1) (m::accu) t
+  in loop f 0 [] list
 
 let read_contents inchan =
   let buf = Buffer.create 1024 in
   let rec loop () =
     lwt s = Lwt_io.read ~count:1024 inchan in
-    if s = ""  then
-      Lwt.return (Buffer.contents buf)
+    if s = ""
+    then Lwt.return (Buffer.contents buf)
     else (
       Buffer.add_string buf s;
       loop ()
@@ -162,13 +160,19 @@ let file_contents path =
   let flags = [Unix.O_RDONLY] in
   lwt inchan = Lwt_io.open_file ~flags ~mode:Lwt_io.input path in
   lwt contents = read_contents inchan in
-  lwt () = Lwt_io.close inchan in 
+  lwt () = Lwt_io.close inchan in
   Lwt.return contents
 
-  
+let string_of_t = function
+  | `GET -> "GET"
+  | `PUT -> "PUT"
+  | `HEAD -> "HEAD"
+  | `DELETE -> "DELETE"
+  | `POST -> "POST"
+
 (* Post encoding *****************************************************************)
 
-let encode_post_url = Netencoding.Url.mk_url_encoded_parameters 
+let encode_post_url = Netencoding.Url.mk_url_encoded_parameters
 
 (* Copyright (c) 2011, barko 00336ea19fcb53de187740c490f764f4 All
    rights reserved.
@@ -176,7 +180,7 @@ let encode_post_url = Netencoding.Url.mk_url_encoded_parameters
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
    met:
-   
+
    1. Redistributions of source code must retain the above copyright
    notice, this list of conditions and the following disclaimer.
 

@@ -135,14 +135,14 @@ sig
     val is_error_fatal : error -> bool
 
     (* [alt_{scheme,host,port}] used to make things work with stunnel *)
-    val call : 
+    val call :
       Creds.t ->
       ?alt_scheme:scheme ->
       ?alt_host:string ->
       ?alt_port:int ->
       ?sandbox:bool ->
       t ->
-      [ 
+      [
       | `Ok of string * transaction_status (* good! *)
       | `Error of string (* failed to parse response *)
       | `Bad of error list (* some FPS error code *)
@@ -153,23 +153,24 @@ sig
 end
 
 
-module VerifySignature : 
+module VerifySignature :
 sig
 
   type error = [
     | `InvalidParams of string
-    | `InternalServerError 
+    | `InternalServerError
   ]
 
   val string_of_error : error -> string
 
   (* [alt_{scheme,host,port}] used to make things work with stunnel *)
-  val call : Creds.t -> 
-    ?alt_scheme:scheme -> 
-    ?alt_host:string -> 
-    ?alt_port:int -> 
-    ?sandbox:bool -> string -> (string * string) list -> 
+  val call : Creds.t ->
+    ?alt_scheme:scheme ->
+    ?alt_host:string ->
+    ?alt_port:int ->
+    ?sandbox:bool -> string -> (string * string) list ->
     [ `Error of string | `Bad of error | `Failure | `Success ] Lwt.t
 
 end
+
 

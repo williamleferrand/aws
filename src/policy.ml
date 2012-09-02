@@ -19,40 +19,40 @@ type ('a, 'b) statement = {
   resources: 'b list
 }
 
-type ('a, 'b) policy = { 
-  policy_id: string; 
-  statements: ('a, 'b) statement list 
+type ('a, 'b) policy = {
+  policy_id: string;
+  statements: ('a, 'b) statement list
 }
 
 type s3_action = [
-| `AbortMultipartUpload 
-| `CreateBucket 
-| `DeleteBucket 
+| `AbortMultipartUpload
+| `CreateBucket
+| `DeleteBucket
 | `DeleteObject
-| `DeleteObjectVersion 
-| `GetBucketAcl 
+| `DeleteObjectVersion
+| `GetBucketAcl
 | `GetBucketLocation
-| `GetBucketNotification 
-| `GetBucketPolicy 
+| `GetBucketNotification
+| `GetBucketPolicy
 | `GetBucketRequestPayment
-| `GetBucketVersioning 
-| `GetObject 
-| `GetObjectAcl 
+| `GetBucketVersioning
+| `GetObject
+| `GetObjectAcl
 | `GetObjectVersion
-| `GetObjectVersionAcl 
-| `ListAllMyBuckets 
+| `GetObjectVersionAcl
+| `ListAllMyBuckets
 | `ListBucket
-| `ListBucketMultipartUploads 
+| `ListBucketMultipartUploads
 | `ListBucketVersions
-| `ListMultipartUploadParts 
-| `PutBucketAcl 
+| `ListMultipartUploadParts
+| `PutBucketAcl
 | `PutBucketNotification
-| `PutBucketPolicy 
-| `PutBucketRequestPayment 
+| `PutBucketPolicy
+| `PutBucketRequestPayment
 | `PutBucketVersioning
-| `PutObject 
-| `PutObjectAcl 
-| `PutObjectAclVersion 
+| `PutObject
+| `PutObjectAcl
+| `PutObjectAclVersion
 | `All
 ]
 
@@ -135,7 +135,7 @@ and json_of_s3_resource resource =
 
 and string_of_s3_resource resource =
   "arn:aws:s3:::" ^ resource
-  
+
 and string_of_account_id account_id =
   "arn:aws:iam::" ^ account_id ^ ":root"
 
