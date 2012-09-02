@@ -22,7 +22,8 @@ Flag ocsigen
 Library aws
   Path:       src
   Modules:    Creds, Aws_sigs, Xml, Aws_util, Policy,
-              EC2_factory, SDB_factory, S3_factory, SQS_factory, FPS_factory
+              EC2_factory, SDB_factory, S3_factory, SQS_factory, FPS_factory,
+              Dynamo_factory, IAM_factory
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre,
                 cryptokit, netstring, calendar, xmlm, yojson
 
@@ -30,7 +31,7 @@ Library "cohttp"
   Path:       src/cohttp
   Build$:     flag(cohttp) || flag(all)
   Install$:   flag(cohttp) || flag(all)
-  Modules:    EC2, SDB, S3, SQS, FPS
+  Modules:    EC2, SDB, S3, SQS, FPS, Dynamo, IAM
   FindlibParent: aws
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre,
                 cryptokit, netstring, calendar, xmlm, cohttp, aws
@@ -39,7 +40,7 @@ Library "ocsigen"
   Path:       src/ocsigen
   Build$:     flag(ocsigen) || flag(all)
   Install$:   flag(ocsigen) || flag(all)
-  Modules:    EC2, SDB, S3, SQS, FPS
+  Modules:    EC2, SDB, S3, SQS, FPS, Dynamo, IAM
   ByteOpt: -thread
   NativeOpt: -thread
   FindlibParent: aws

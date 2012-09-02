@@ -3,6 +3,11 @@
 let remove_newline =
   Pcre.replace ~rex:(Pcre.regexp "\n") ~templ:""
 
+let split_slash s =
+  match Pcre.split ~pat:"/" s with
+    | [x1 ;x2 ] -> x1,x2
+    | _ -> assert false
+
 let base64 str =
   (* the encoder is consumed by its use, so we have to recreated *)
   let b64_encoder = Cryptokit.Base64.encode_multiline () in
@@ -173,6 +178,38 @@ let string_of_t = function
 (* Post encoding *****************************************************************)
 
 let encode_post_url = Netencoding.Url.mk_url_encoded_parameters
+
+
+let filter_map_rev f l =
+  let rec aux acc = function
+    | [] -> acc
+    | x::xs ->
+      try
+        match f x with
+          | Some y -> aux (y::acc) xs
+          | None -> aux acc xs
+      with _ -> aux acc xs in
+  aux [] l
+
+let filter_map f l = List.rev (filter_map_rev f l)
+
+let option_map f o =
+  match o with
+    | None -> None
+    | Some x -> Some (f x)
+
+let option_bind f o =
+  match o with
+    | None -> None
+    | Some x -> f x
+
+
+let make tm_year tm_mon tm_mday tm_hour tm_min tm_sec _ =
+  let tm_wday,tm_yday,tm_isdst = 0,0,false in
+  Unix.(
+    let tm = {tm_year;tm_mon;tm_mday;tm_hour;tm_min;tm_sec;tm_wday;tm_yday;tm_isdst} in
+    Int64.of_float (fst (mktime tm))
+  )
 
 (* Copyright (c) 2011, barko 00336ea19fcb53de187740c490f764f4 All
    rights reserved.
