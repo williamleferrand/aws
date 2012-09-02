@@ -2,9 +2,9 @@ OASISFormat: 0.3
 Name:        aws
 Version:     0.0.2
 Synopsis:    aws client lib for amazon web services
-Authors:     Barko, William Le Ferrand, Hhugo
+Authors:     Barko, William Le Ferrand, Hhugo, Msimon
 License:     MIT
-Plugins:     DevFiles (0.3), META (0.3), StdFiles (0.3)
+Plugins:     META (0.3), StdFiles (0.3)
 BuildTools:  ocamlbuild
 
 Flag all

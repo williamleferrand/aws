@@ -4,6 +4,7 @@ ocsidb
 _build
 setup.log
 setup.data
+setup.ml
 *~
 *#*
 *bug*

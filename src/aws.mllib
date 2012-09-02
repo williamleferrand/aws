@@ -1,0 +1,16 @@
+# OASIS_START
+# DO NOT EDIT (digest: 0f6357a50cda6a691ec01d248befe6be)
+Creds
+Aws_sigs
+Xml
+Aws_util
+Policy
+EC2_factory
+SDB_factory
+S3_factory
+SQS_factory
+FPS_factory
+Dynamo_factory
+IAM_factory
+SES_factory
+# OASIS_STOP
