@@ -8,8 +8,13 @@ Aws depends directly on the following packages:
 -  calendar
 -  lwt
 -  [xmlm](http://github.com/samoht/xmlm)
--  [cohttp](http://github.com/williamleferrand/ocaml-cohttp)
 -  yojson
--  (eventually) ocsigen
+
+It also depends on one of those packages:
+-  [cohttp](http://github.com/williamleferrand/ocaml-cohttp) (--enable-cohttp)
+-  ocsigen (--enable-ocsigen) (default)
+
+the cohttp driver does not support ssl for now. Some services
+(e.g. Ses may no be available when using cohttp)
 
 All of the packages except the last two are available via GODI.
