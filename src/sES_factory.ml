@@ -1,11 +1,11 @@
 module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
   struct
 
-
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 module X = Xml
 module Util = Aws_util
+
 type send_data_points = {
   bounce: int ;
   complaints: int ;
@@ -37,61 +37,23 @@ type message = {
 
 exception Ses_error of string * string * string
 
-type t =
-  | El of (string * t list)
-  | Data of string
-
-let of_string s =
-  let el ((_,local),_) t_list = El (local,t_list) in
-  let data s = Data s in
-  let input = Xmlm.make_input ~strip:true (`String (0,s)) in
-  let _, d = Xmlm.input_doc_tree ~el ~data input in
-  d
-
-let rec fetch_nodes xml l =
-  match l with
-    | h::t ->
-      begin
-        match xml with
-          | El (h_, xml)::_ when h = h_ -> fetch_nodes xml t
-          | _::xml -> fetch_nodes xml l
-          | _ -> raise Not_found
-      end
-    | _ -> xml
-
-
-let nodes_of_string s xml =
-  let l = Str.split (Str.regexp "\\.") s in
-  fetch_nodes [ xml ] l
-
-
-let data_of_string s xml =
-  let l = Str.split (Str.regexp "\\.")  s in
-  match fetch_nodes xml l with
-    | [ Data d ] -> d
-    | _ -> raise Not_found
-
 let check_error xml =
   try
-    let e = nodes_of_string "ErrorResponse.Error" xml in
-    let type_ = data_of_string "Type" e in
-    let code = data_of_string "Code" e in
-    let message = data_of_string "Message" e in
+    let e = X.nodes_of_string "ErrorResponse.Error" xml in
+    let type_ = X.data_of_string "Type" e in
+    let code = X.data_of_string "Code" e in
+    let message = X.data_of_string "Message" e in
     raise (Ses_error (type_,code,message))
   with Not_found -> ()
-
 
 let endpoint = "https://email.us-east-1.amazonaws.com/"
 
 let build_ses_header ~creds =
   let date = CalendarLib.Printer.Calendar.sprint "%a, %d %b %Y %T %z" (CalendarLib.Calendar.now ()) in
-
   let hmac_sha1_encoder = (Cryptokit.MAC.hmac_sha1 creds.Creds.aws_secret_access_key) in
   let sign = Cryptokit.hash_string hmac_sha1_encoder date in
   let sign_64 = Netencoding.Base64.encode sign in
-
   let h = Printf.sprintf "AWS3-HTTPS AWSAccessKeyId=%s, Algorithm=HmacSHA1, Signature=%s" creds.Creds.aws_access_key_id sign_64 in
-
   [
     ("Date", date) ;
     ("X-Amzn-Authorization", h)
@@ -108,7 +70,7 @@ let make_request ~creds post_params =
   ] @ post_params in
   let body = `String (Util.encode_post_url post_params) in
   lwt _,s = HC.post ~headers ~body endpoint in
-  let xml = of_string s in
+  let xml = Xml.xml_of_string s in
   check_error xml ;
   Lwt.return xml
 
@@ -126,10 +88,10 @@ let get_send_quota ~creds =
     ("Action", "GetSendQuota");
   ] in
 
-  let t = nodes_of_string "GetSendQuotaResponse.GetSendQuotaResult" xml in
-  let max_24_hour_send = float_of_string (data_of_string "Max24HourSend" t) in
-  let max_send_rate = float_of_string (data_of_string "MaxSendRate" t) in
-  let sent_last_24_hours = float_of_string (data_of_string "SentLast24Hours" t) in
+  let t = X.nodes_of_string "GetSendQuotaResponse.GetSendQuotaResult" xml in
+  let max_24_hour_send = float_of_string (X.data_of_string "Max24HourSend" t) in
+  let max_send_rate = float_of_string (X.data_of_string "MaxSendRate" t) in
+  let sent_last_24_hours = float_of_string (X.data_of_string "SentLast24Hours" t) in
 
   Lwt.return (max_24_hour_send,max_send_rate,sent_last_24_hours)
 
@@ -137,19 +99,18 @@ let get_send_statistics ~creds =
   lwt xml = make_request ~creds [
     ("Action", "GetSendStatistics");
   ] in
-
-  let t = nodes_of_string "GetSendStatisticsResponse.GetSendStatisticsResult.SendDataPoints" xml in
+  let t = X.nodes_of_string "GetSendStatisticsResponse.GetSendStatisticsResult.SendDataPoints" xml in
   let l =
     List.fold_left (
       fun datas -> function
-        | El ("member", xml) ->
-          let timestamp = data_of_string "Timestamp" xml in
+        | X.E ("member", _, xml) ->
+          let timestamp = X.data_of_string "Timestamp" xml in
           let timestamp = CalendarLib.Printer.Calendar.from_fstring "%FT%TZ" timestamp in
           {
-            bounce = int_of_string (data_of_string "Bounces" xml) ;
-            complaints = int_of_string (data_of_string "Complaints" xml) ;
-            delivery_attempts = int_of_string (data_of_string "DeliveryAttempts" xml) ;
-            rejects = int_of_string (data_of_string "Rejects" xml) ;
+            bounce = int_of_string (X.data_of_string "Bounces" xml) ;
+            complaints = int_of_string (X.data_of_string "Complaints" xml) ;
+            delivery_attempts = int_of_string (X.data_of_string "DeliveryAttempts" xml) ;
+            rejects = int_of_string (X.data_of_string "Rejects" xml) ;
             timestamp = CalendarLib.Calendar.to_unixfloat timestamp ;
           }::datas
         | _ -> datas
@@ -162,11 +123,11 @@ let list_verified_email_addresses ~creds =
     ("Action", "ListVerifiedEmailAddresses");
   ] in
 
-  let t = nodes_of_string "ListVerifiedEmailAddressesResponse.ListVerifiedEmailAddressesResult.VerifiedEmailAddresses" xml in
+  let t = X.nodes_of_string "ListVerifiedEmailAddressesResponse.ListVerifiedEmailAddressesResult.VerifiedEmailAddresses" xml in
   let l =
     List.fold_left (
       fun acc -> function
-        | El ("member", [ Data s ]) -> s::acc
+        | X.E ("member", _, [ X.P s ]) -> s::acc
         | _ -> acc
     ) [] t
   in
@@ -224,42 +185,42 @@ let send_email ~creds ?reply_to_addresses ?return_path ~destination ~source ~mes
   in
 
   lwt xml = make_request ~creds params in
-  Lwt.return (data_of_string "SendEmailResponse.SendEmailResult.MessageId" [ xml ])
+  Lwt.return (X.data_of_string "SendEmailResponse.SendEmailResult.MessageId" [ xml ])
 
 (** /!\ NEVER TESTED /!\ **)
 let send_raw_email ~creds ?destinations ?source ~raw_message () =
   let build_members dests acc =
     match dests with
-      | Some d -> build_member d "Destinations" acc
-      | None -> acc
+    | Some d -> build_member d "Destinations" acc
+    | None -> acc
   in
 
   let params =
     match source with
-      | Some s -> [("Source", s); ("Action", "SendRawEmail")];
-      | None -> [("Action", "SendRawEmail") ];
+    | Some s -> [("Source", s); ("Action", "SendRawEmail")];
+    | None -> [("Action", "SendRawEmail") ];
   in
 
   let params = build_members destinations params in
 
   lwt xml = make_request ~creds params in
-  Lwt.return (data_of_string "SendEmailResponse.SendEmailResult.MessageId" [xml])
+  Lwt.return (X.data_of_string "SendEmailResponse.SendEmailResult.MessageId" [xml])
 
-
-(* The VerifyEmailAddress action is deprecated as of the May 15, 2012 release of Domain Verification. The VerifyEmailIdentity action is now preferred *)
-let verify_email_address ~creds email =
-  lwt xml = make_request ~creds [
-    ("Action", "VerifyEmailAddress");
-    ("EmailAddress", email);
-  ] in
-  Lwt.return (data_of_string "VerifyEmailAddressResponse.ResponseMetadata.RequestId" [xml])
+(* The VerifyEmailAddress action is deprecated as of the May 15, 2012 release of Domain Verification.
+   The VerifyEmailIdentity action is now preferred *)
+(* let verify_email_address ~creds email = *)
+(*   lwt xml = make_request ~creds [ *)
+(*     ("Action", "VerifyEmailAddress"); *)
+(*     ("EmailAddress", email); *)
+(*   ] in *)
+(*   Lwt.return (X.data_of_string "VerifyEmailAddressResponse.ResponseMetadata.RequestId" [xml]) *)
 
 let verify_email_address ~creds email =
   lwt xml = make_request ~creds [
     ("Action", "VerifyEmailIdentity");
     ("EmailAddress", email);
   ] in
-  Lwt.return (data_of_string "VerifyEmailIdentityResponse.ResponseMetadata.RequestId" [xml])
+  Lwt.return (X.data_of_string "VerifyEmailIdentityResponse.ResponseMetadata.RequestId" [xml])
 
 (************** custom function **************)
 

@@ -21,3 +21,21 @@ let string_of_xml x =
   Xmlm.output_doc_tree frag output (None, x);
   Buffer.contents buf
 
+let rec fetch_nodes xml l =
+  match l with
+    | [] -> xml
+    | h::t ->
+      match xml with
+      | E (h_, _, xml)::_ when h = h_ -> fetch_nodes xml t
+      | _::xml -> fetch_nodes xml l
+      | _ -> raise Not_found
+
+let nodes_of_string s xml =
+  let l = Str.split (Str.regexp "\\.") s in
+  fetch_nodes [ xml ] l
+
+let data_of_string s xml =
+  let l = Str.split (Str.regexp "\\.")  s in
+  match fetch_nodes xml l with
+    | [ P d ] -> d
+    | _ -> raise Not_found
