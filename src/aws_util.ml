@@ -1,18 +1,17 @@
-(* Miscellaneous *****************************************************************)
+(* Miscellaneous ***********************)
 
 let remove_newline =
   Pcre.replace ~rex:(Pcre.regexp "\n") ~templ:""
 
 let split_slash s =
   match Pcre.split ~pat:"/" s with
-    | [x1 ;x2 ] -> x1,x2
-    | _ -> assert false
+  | [x1 ;x2 ] -> x1,x2
+  | _ -> assert false
 
 let base64 str =
   (* the encoder is consumed by its use, so we have to recreated *)
   let b64_encoder = Cryptokit.Base64.encode_multiline () in
   let encoded = Cryptokit.transform_string b64_encoder str in
-
   (* we want to retain the trailing '=' characters, but eliminate the
      newlines.  Unfortunately, [encode_compact] has neither. *)
   remove_newline encoded
@@ -25,9 +24,7 @@ let base64_decoder str =
 let colon_space (k, v) = k ^ ": " ^ v
 
 let encode_url ?(safe=false) str =
-    (*  if not safe then
-	Netencoding.Url.encode ~plus:false str
-	else *)
+  (* if not safe then Netencoding.Url.encode ~plus:false str else *)
   begin
     let strlist = ref [] in
     for i = 0 to String.length str - 1 do
@@ -39,12 +36,11 @@ let encode_url ?(safe=false) str =
           (c = 126) ||
           (c = 95) ||
           (c = 46) ||
-          (c = 45) (* ||
-		      (c = 47) *)
+          (c = 45) (* || (c = 47) *)
       then
-	strlist := Printf.sprintf "%c" str.[i] :: !strlist
+	      strlist := Printf.sprintf "%c" str.[i] :: !strlist
       else
-	strlist :=  Printf.sprintf "%%%X" c :: !strlist
+	      strlist := Printf.sprintf "%%%X" c :: !strlist
     done ;
     String.concat "" (List.rev !strlist)
   end
@@ -60,20 +56,20 @@ let encode_key_equals_value ?(safe=false) kvs =
    ["x","y";"z","";"p","q"] *)
 let url_params uri =
   match Pcre.split ~pat:"\\?" uri with
-    | [before_question_mark ; after_question_mark] ->
-      let kvs = Pcre.split ~pat:"&" after_question_mark in
-      List.fold_left (
-        fun accu kv ->
-          match Pcre.split ~max:2 ~pat:"=" kv with (* "x=y=z" -> ["x";"y=z"] *)
-            | [k; v] ->
-              let kv = Netencoding.Url.decode k, Netencoding.Url.decode v in
-              kv :: accu
-            | [k] ->
-              let kv = Netencoding.Url.decode k, "" in
-              kv :: accu
-            | _ -> accu
-      ) [] kvs
-    | _ -> []
+  | [before_question_mark ; after_question_mark] ->
+    let kvs = Pcre.split ~pat:"&" after_question_mark in
+    List.fold_left (
+      fun accu kv ->
+        match Pcre.split ~max:2 ~pat:"=" kv with (* "x=y=z" -> ["x";"y=z"] *)
+        | [k; v] ->
+          let kv = Netencoding.Url.decode k, Netencoding.Url.decode v in
+          kv :: accu
+        | [k] ->
+          let kv = Netencoding.Url.decode k, "" in
+          kv :: accu
+        | _ -> accu
+    ) [] kvs
+  | _ -> []
 
 
 let file_size path =
@@ -96,7 +92,6 @@ let creds_of_env () = {
   aws_access_key_id = getenv_else_exit "AWS_ACCESS_KEY_ID";
   aws_secret_access_key = getenv_else_exit "AWS_SECRET_ACCESS_KEY"
 }
-
 
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
@@ -152,14 +147,14 @@ let read_contents inchan =
   let buf = Buffer.create 1024 in
   let rec loop () =
     lwt s = Lwt_io.read ~count:1024 inchan in
-    if s = ""
-    then Lwt.return (Buffer.contents buf)
-    else (
-      Buffer.add_string buf s;
-      loop ()
-    )
-  in
-  loop ()
+  if s = ""
+  then Lwt.return (Buffer.contents buf)
+  else (
+    Buffer.add_string buf s;
+    loop ()
+  )
+in
+loop ()
 
 let file_contents path =
   let flags = [Unix.O_RDONLY] in
@@ -175,10 +170,9 @@ let string_of_t = function
   | `DELETE -> "DELETE"
   | `POST -> "POST"
 
-(* Post encoding *****************************************************************)
+(* Post encoding *)
 
 let encode_post_url = Netencoding.Url.mk_url_encoded_parameters
-
 
 let filter_map_rev f l =
   let rec aux acc = function
@@ -186,8 +180,8 @@ let filter_map_rev f l =
     | x::xs ->
       try
         match f x with
-          | Some y -> aux (y::acc) xs
-          | None -> aux acc xs
+        | Some y -> aux (y::acc) xs
+        | None -> aux acc xs
       with _ -> aux acc xs in
   aux [] l
 
@@ -195,13 +189,13 @@ let filter_map f l = List.rev (filter_map_rev f l)
 
 let option_map f o =
   match o with
-    | None -> None
-    | Some x -> Some (f x)
+  | None -> None
+  | Some x -> Some (f x)
 
 let option_bind f o =
   match o with
-    | None -> None
-    | Some x -> f x
+  | None -> None
+  | Some x -> f x
 
 
 let make tm_year tm_mon tm_mday tm_hour tm_min tm_sec _ =

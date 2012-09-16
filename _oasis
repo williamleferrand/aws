@@ -17,7 +17,7 @@ Flag tools
 
 Flag cohttp
   Description: cohttp
-  Default: true
+  Default: false
 
 Flag ocsigen
   Description: ocsigen
@@ -45,6 +45,7 @@ Library "ocsigen"
   Build$:     flag(ocsigen) || flag(all)
   Install$:   flag(ocsigen) || flag(all)
   Modules:    EC2, SDB, S3, SQS, FPS, Dynamo, IAM, SES
+  InternalModules: Ocsigen_HC
   ByteOpt: -thread
   NativeOpt: -thread
   FindlibParent: aws

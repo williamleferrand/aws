@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0c34981b49d5140439f323b33306ccac)
+# DO NOT EDIT (digest: deac013f5a76429cc817afd6605e9191)
 EC2
 SDB
 S3
@@ -8,4 +8,5 @@ FPS
 Dynamo
 IAM
 SES
+Ocsigen_HC
 # OASIS_STOP
