@@ -41,6 +41,10 @@ let extract_content_to_chan chan frame =
 
 let call ?headers ?(body=`None) ~http_method url =
   let (https, host, port, uri, _, _, _) = Ocsigen_lib.Url.parse url in
+  let uri = match uri with (* WHY *)
+    | "" -> "/"
+    | s when s.[0] <> '/' -> "/"^s
+    | s -> s in
   let host = match host with None -> "localhost" | Some h -> h in
   Ocsigen_lib.Ip_address.get_inet_addr host >>= fun inet_addr ->
   let content = match body with
@@ -62,7 +66,7 @@ let call ?headers ?(body=`None) ~http_method url =
   let content_length = match body with
     | `None -> None
     | `String s -> Some (Int64.of_int (String.length s))
-    | `InChannel _ -> None in
+    | `InChannel (count,_) -> Some (Int64.of_int count) in
   let headers = match headers with
     | Some headers ->
       Some (
@@ -98,7 +102,7 @@ let post ?headers ?(body=`None) url =
   >>= extract_content
 
 let put ?headers ?(body=`None) url =
-  call ?headers ~body ~http_method:Ocsigen_http_frame.Http_header.POST url
+  call ?headers ~body ~http_method:Ocsigen_http_frame.Http_header.PUT url
   >>= extract_content
 
 let delete ?headers url =
