@@ -39,7 +39,7 @@ let extract_content_to_chan chan frame =
     in
     loop st >>= fun () -> return header
 
-let call ?headers ?(body=`None) ~http_method url =
+let call ?(headers=[]) ?(body=`None) ~http_method url =
   let (https, host, port, uri, _, _, _) = Ocsigen_lib.Url.parse url in
   let uri = match uri with (* WHY *)
     | "" -> "/"
@@ -67,14 +67,19 @@ let call ?headers ?(body=`None) ~http_method url =
     | `None -> None
     | `String s -> Some (Int64.of_int (String.length s))
     | `InChannel (count,_) -> Some (Int64.of_int count) in
-  let headers = match headers with
-    | Some headers ->
-      Some (
-        List.fold_left
-          (fun h (n,v) ->
-            Http_headers.add (Http_headers.name n) v h)
-          Http_headers.empty headers)
-    | None -> None in
+  let headers = match content_length with
+    | Some l ->
+      let headers = ("Content-Length",Int64.to_string l)::(List.remove_assoc "Content-Length" headers) in
+      if List.mem_assoc "Content-Type" headers
+      then headers
+      else ("Content-Type","application/x-www-form-urlencoded")::headers
+    | _ -> headers in
+  let headers =
+    List.fold_left
+      (fun h (n,v) ->
+        Http_headers.add (Http_headers.name n) v h)
+      Http_headers.empty headers
+    in
   content >>= fun content ->
   Ocsigen_http_client.raw_request
     ?https
@@ -82,7 +87,7 @@ let call ?headers ?(body=`None) ~http_method url =
     ~http_method:http_method
     ~content
     ?content_length
-    ?headers
+    ~headers
     ~host:(match port with None -> host | Some p -> host^":"^string_of_int p)
     ~inet_addr
     ~uri
