@@ -25,9 +25,10 @@ Flag ocsigen
 
 Library aws
   Path:       src
-  Modules:    Creds, Aws_sigs, Xml, Aws_util, Policy,
+  Modules:    Creds, Aws_sigs, Aws_util, Policy,
               EC2_factory, SDB_factory, S3_factory, SQS_factory, FPS_factory,
               Dynamo_factory, IAM_factory, SES_factory
+  InternalModules: Xml
   BuildDepends: lwt, lwt.unix, lwt.syntax, netstring, pcre,
                 cryptokit, netstring, calendar, xmlm, yojson
 
