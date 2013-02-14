@@ -237,7 +237,8 @@ let send_basic_email ~creds ?message_text ?bcc ?cc ?charset ?reply_to_addresses 
     subject = { charset; data = subject } ;
     body = {
       html = { charset; data = message_html } ;
-      text = { charset; data = (match message_text with | Some m -> m | None -> "") }
+      text = { charset = (match message_text with Some "" | None -> "" | _ -> charset);
+               data = (match message_text with | Some m -> m | None -> "") }
     }
   } in
 

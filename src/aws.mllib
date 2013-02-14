@@ -1,8 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0f6357a50cda6a691ec01d248befe6be)
+# DO NOT EDIT (digest: dfe43d99057a93e09520744c0d1a54c5)
 Creds
 Aws_sigs
-Xml
 Aws_util
 Policy
 EC2_factory
@@ -13,4 +12,5 @@ FPS_factory
 Dynamo_factory
 IAM_factory
 SES_factory
+Xml
 # OASIS_STOP
