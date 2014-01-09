@@ -9,7 +9,7 @@ Description:
   Aws depends directly on the following packages:
   .
    - netstring
-   - cryptokit 
+   - cryptokit
    - calendar
    - lwt
    - xmlm
@@ -26,7 +26,9 @@ Description:
   .
   All of the packages except the [cohttp fork] are available via OPAM.
 
-Authors:     Barko, William Le Ferrand, Hhugo, Msimon
+Authors:     Mika Illouz, William Le Ferrand, Hugo Heuzard, Marc Simon
+Maintainers: Hugo Heuzard <hugo.heuzard@gmail.com>, William Le Ferrand <warnegia@gmail.com>
+Homepage:    https://github.com/besport/aws/
 License:     MIT
 Plugins:     META (0.4), StdFiles (0.4)
 BuildTools:  ocamlbuild

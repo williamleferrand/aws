@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 3be1977e025b4011b6e0a6f491a10e79) *)
+(* DO NOT EDIT (digest: 45078f0870e731f835fc2cd1d2cef2ea) *)
 This is the README file for the aws distribution.
 
 AWS client for Amazon Web Services
@@ -24,6 +24,8 @@ no be available when using cohttp)
 All of the packages except the [cohttp fork] are available via OPAM.
 
 See the files INSTALL.txt for building and installation instructions. 
+
+Home page: https://github.com/besport/aws/
 
 
 (* OASIS_STOP *)
