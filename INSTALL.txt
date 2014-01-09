@@ -1,9 +1,9 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0936597dda0f818ee65ea6400807cc8c) *)
+(* DO NOT EDIT (digest: 8bdbd4dfc1cafdec20fda7a2f9f94a49) *)
 This is the INSTALL file for the aws distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
-full information. 
+full information.
 
 Dependencies
 ============
@@ -41,7 +41,7 @@ Installing
 Uninstalling
 ============
 
-1. Go to the root of the package 
+1. Go to the root of the package
 2. Run 'ocaml setup.ml -uninstall'
 
 OASIS

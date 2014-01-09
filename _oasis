@@ -1,4 +1,4 @@
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        aws
 Version:     0.0.2
 Synopsis:    aws client lib for amazon web services
