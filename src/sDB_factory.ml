@@ -6,7 +6,7 @@ struct
 
   module C = CalendarLib.Calendar
   module P = CalendarLib.Printer.CalendarPrinter
-  module X = Xml
+  module X = My_xml
 
 
   open Lwt

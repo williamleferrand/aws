@@ -4,7 +4,7 @@ module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
 
 
 module Util = Aws_util
-module X = Xml
+module X = My_xml
 
 open Creds
 open Printf

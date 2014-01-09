@@ -3,7 +3,7 @@ module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
 
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
-module X = Xml
+module X = My_xml
 module Util = Aws_util
 
 type send_data_points = {
@@ -70,7 +70,7 @@ let make_request ~creds post_params =
   ] @ post_params in
   let body = `String (Util.encode_post_url post_params) in
   lwt _,s = HC.post ~headers ~body endpoint in
-  let xml = Xml.xml_of_string s in
+  let xml = X.xml_of_string s in
   check_error xml ;
   Lwt.return xml
 

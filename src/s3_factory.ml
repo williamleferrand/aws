@@ -5,7 +5,7 @@ module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
 module K = Cryptokit
 
-module X = Xml
+module X = My_xml
 
 open Lwt
 

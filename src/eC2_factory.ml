@@ -5,7 +5,7 @@ module Make = functor (HC : Aws_sigs.HTTP_CLIENT) ->
 
 module C = CalendarLib.Calendar
 module P = CalendarLib.Printer.CalendarPrinter
-module X = Xml
+module X = My_xml
 
 
 open Lwt

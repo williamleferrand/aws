@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: dfe43d99057a93e09520744c0d1a54c5)
+# DO NOT EDIT (digest: 18a09cbf9b7b0fd19b679773624a6391)
 Creds
 Aws_sigs
 Aws_util
@@ -12,5 +12,5 @@ FPS_factory
 Dynamo_factory
 IAM_factory
 SES_factory
-Xml
+My_xml
 # OASIS_STOP
