@@ -20,9 +20,14 @@ let extract_content frame =
   match frame.frame_content with
   | None -> return (header, "")
   | Some content ->
-    let st = Ocsigen_stream.get content in
-    Ocsigen_stream.string_of_stream 15000 st >>= fun s ->
-    return (header, s)
+    try_lwt
+      let st = Ocsigen_stream.get content in
+      lwt s = Ocsigen_stream.string_of_stream 15000 st in
+      lwt _ = Ocsigen_stream.finalize content `Success in
+      return (header, s)
+    with exn ->
+      lwt _ = Ocsigen_stream.finalize content `Failure in
+      Lwt.fail exn
 
 let extract_content_to_chan chan frame =
   let header = extract_headers frame  in
@@ -37,7 +42,13 @@ let extract_content_to_chan chan frame =
       | Ocsigen_stream.Finished None -> Lwt.return_unit
       | Ocsigen_stream.Finished (Some st) -> loop st
     in
-    loop st >>= fun () -> return header
+    try_lwt
+      lwt _ = loop st in
+      lwt _ = Ocsigen_stream.finalize content `Success in
+      return header
+    with exn ->
+      lwt _ = Ocsigen_stream.finalize content `Failure in
+      Lwt.fail exn
 
 let call ?(headers=[]) ?(body=`None) ~http_method url =
   let (https, host, port, uri, _, _, _) = Ocsigen_lib.Url.parse url in
